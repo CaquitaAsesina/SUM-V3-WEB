@@ -74,29 +74,4 @@ CREATE TABLE usuarios (
   INDEX idx_usu_rol (rol)
 ) ENGINE=InnoDB;
 
--- ------------------------------------------------------------
--- Datos de ejemplo
--- ------------------------------------------------------------
--- ------------------------------------------------------------
--- Usuario administrador por defecto
--- (la contraseña debe hashearse con bcrypt al insertar)
--- ------------------------------------------------------------
--- Para generar el hash: bcrypt.hashSync('saltamonteXD2003*', 10)
--- INSERT INTO usuarios (usuario, contrasena, nombre_completo, rol)
--- VALUES ('FP76270486', '$2a$10$<HASH_GENERADO>', 'Administrador', 'ADMIN');
 
-INSERT INTO productos (codigo, nombre, descripcion, unidad) VALUES
-('PRD-0001', 'Paracetamol 500 mg',   'Tabletas analgésicas · caja x 100', 'Caja'),
-('PRD-0002', 'Amoxicilina 500 mg',   'Cápsulas antibióticas · caja x 50', 'Caja'),
-('PRD-0003', 'Ibuprofeno 400 mg',    'Tabletas antiinflamatorias',        'Frasco'),
-('PRD-0004', 'Suero fisiológico 1L', 'Solución salina intravenosa',       'Bolsa'),
-('PRD-0005', 'Alcohol etílico 96°',  'Antiséptico de uso externo',        'Galón');
-
--- ------------------------------------------------------------
--- Consulta util: stock por producto
--- (entregas suman, devoluciones restan)
--- ------------------------------------------------------------
--- SELECT p.codigo, p.nombre,
---        COALESCE(SUM(IF(r.tipo='ENTREGA', r.cantidad, -r.cantidad)), 0) AS stock
--- FROM productos p LEFT JOIN registros r ON r.producto_id = p.id
--- GROUP BY p.id ORDER BY p.nombre;
