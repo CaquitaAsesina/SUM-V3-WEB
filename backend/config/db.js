@@ -1,4 +1,6 @@
 require('dotenv').config();
+const fs = require('fs');
+const path = require('path');
 const mysql = require('mysql2/promise');
 
 const requeridas = ['DB_HOST', 'DB_USER', 'DB_NAME'];
@@ -8,6 +10,17 @@ if (faltantes.length) {
     `Faltan variables de entorno: ${faltantes.join(', ')}. ` +
     'Copia .env.example como .env y completa tus credenciales.'
   );
+}
+
+let ssl;
+if (String(process.env.DB_SSL).toLowerCase() === 'true') {
+  const caPath = process.env.DB_CA_PATH || path.join(__dirname, 'certs', 'ca.pem');
+  if (fs.existsSync(caPath)) {
+    ssl = { ca: fs.readFileSync(caPath), rejectUnauthorized: true };
+  } else {
+    ssl = { rejectUnauthorized: false };
+    console.warn('[db] SSL activo sin certificado CA. Descarga ca.pem desde Aiven Console y colócalo en backend/certs/ca.pem para verificación completa.');
+  }
 }
 
 const pool = mysql.createPool({
@@ -20,7 +33,9 @@ const pool = mysql.createPool({
   connectionLimit: 10,
   queueLimit: 0,
   dateStrings: true,
-  namedPlaceholders: false
+  namedPlaceholders: false,
+  ssl,
+  connectTimeout: 15000
 });
 
 module.exports = pool;

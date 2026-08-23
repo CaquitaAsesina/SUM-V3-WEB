@@ -1,17 +1,22 @@
 <!DOCTYPE html>
 <html lang="es">
+
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
   <title>Suministros · Farmacias Peruanas</title>
-  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>💊</text></svg>">
+  <link rel="icon"
+    href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>💊</text></svg>">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Space+Grotesk:wght@500;600;700&display=swap" rel="stylesheet">
+  <link
+    href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Space+Grotesk:wght@500;600;700&display=swap"
+    rel="stylesheet">
   <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
   <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css" rel="stylesheet">
   <link rel="stylesheet" href="/css/styles.css">
 </head>
+
 <body>
 
   <div class="bg-decor" aria-hidden="true">
@@ -54,7 +59,7 @@
     </nav>
 
     <div class="sidebar-footer">
-      <div class="sf-chip"><span class="pulse-dot"></span> Sistema en línea · v1.0</div>
+      <div class="sf-chip"><span class="pulse-dot"></span> Creador - Justin </div>
     </div>
   </aside>
 
@@ -62,7 +67,9 @@
     <div class="offcanvas-header pt-4 px-4">
       <div class="sidebar-brand m-0">
         <div class="brand-logo"><i class="bi bi-capsule-pill"></i></div>
-        <div class="brand-text"><h1>Suministros</h1><span>Farmacias Peruanas</span></div>
+        <div class="brand-text">
+          <h1>Suministros</h1><span>Farmacias Peruanas</span>
+        </div>
       </div>
       <button type="button" class="btn-close" data-bs-dismiss="offcanvas" aria-label="Cerrar"></button>
     </div>
@@ -84,7 +91,8 @@
   </div>
 
   <header class="topbar d-flex d-lg-none align-items-center sticky-top">
-    <button class="btn-burger" type="button" data-bs-toggle="offcanvas" data-bs-target="#sidebarMobile" aria-label="Abrir menú">
+    <button class="btn-burger" type="button" data-bs-toggle="offcanvas" data-bs-target="#sidebarMobile"
+      aria-label="Abrir menú">
       <i class="bi bi-list"></i>
     </button>
     <div class="topbar-brand">
@@ -129,14 +137,16 @@
               <i class="bi bi-check2-circle be-done d-none"></i>
               <span class="be-label">Exportar</span>
             </button>
-            <button class="btn-refresh" id="btnRecargarRegistros" title="Actualizar"><i class="bi bi-arrow-clockwise"></i></button>
+            <button class="btn-refresh" id="btnRecargarRegistros" title="Actualizar"><i
+                class="bi bi-arrow-clockwise"></i></button>
           </div>
         </div>
 
         <div class="resumen-chips mb-3">
           <span class="r-chip total"><i class="bi bi-stack"></i> Movimientos hoy <b id="chipHoyTotal">0</b></span>
           <span class="r-chip ent"><i class="bi bi-truck"></i> Entregas hoy <b id="chipHoyEnt">0</b></span>
-          <span class="r-chip dev"><i class="bi bi-arrow-return-left"></i> Devoluciones hoy <b id="chipHoyDev">0</b></span>
+          <span class="r-chip dev"><i class="bi bi-arrow-return-left"></i> Devoluciones hoy <b
+              id="chipHoyDev">0</b></span>
         </div>
 
         <div class="toolbar">
@@ -152,9 +162,15 @@
         </div>
 
         <div class="skeleton-group" id="skeletonRegistros">
-          <div class="skel-row"><span class="skeleton w-25"></span><span class="skeleton w-20"></span><span class="skeleton flex-fill"></span><span class="skeleton w-15"></span><span class="skeleton w-10"></span></div>
-          <div class="skel-row"><span class="skeleton w-25"></span><span class="skeleton w-20"></span><span class="skeleton flex-fill"></span><span class="skeleton w-15"></span><span class="skeleton w-10"></span></div>
-          <div class="skel-row"><span class="skeleton w-25"></span><span class="skeleton w-20"></span><span class="skeleton flex-fill"></span><span class="skeleton w-15"></span><span class="skeleton w-10"></span></div>
+          <div class="skel-row"><span class="skeleton w-25"></span><span class="skeleton w-20"></span><span
+              class="skeleton flex-fill"></span><span class="skeleton w-15"></span><span class="skeleton w-10"></span>
+          </div>
+          <div class="skel-row"><span class="skeleton w-25"></span><span class="skeleton w-20"></span><span
+              class="skeleton flex-fill"></span><span class="skeleton w-15"></span><span class="skeleton w-10"></span>
+          </div>
+          <div class="skel-row"><span class="skeleton w-25"></span><span class="skeleton w-20"></span><span
+              class="skeleton flex-fill"></span><span class="skeleton w-15"></span><span class="skeleton w-10"></span>
+          </div>
         </div>
 
         <div class="empty-state d-none" id="emptyRegistros">
@@ -208,9 +224,12 @@
         </div>
 
         <div class="skeleton-group" id="skeletonProductos">
-          <div class="skel-row"><span class="skeleton w-15"></span><span class="skeleton flex-fill"></span><span class="skeleton w-15"></span><span class="skeleton w-10"></span></div>
-          <div class="skel-row"><span class="skeleton w-15"></span><span class="skeleton flex-fill"></span><span class="skeleton w-15"></span><span class="skeleton w-10"></span></div>
-          <div class="skel-row"><span class="skeleton w-15"></span><span class="skeleton flex-fill"></span><span class="skeleton w-15"></span><span class="skeleton w-10"></span></div>
+          <div class="skel-row"><span class="skeleton w-15"></span><span class="skeleton flex-fill"></span><span
+              class="skeleton w-15"></span><span class="skeleton w-10"></span></div>
+          <div class="skel-row"><span class="skeleton w-15"></span><span class="skeleton flex-fill"></span><span
+              class="skeleton w-15"></span><span class="skeleton w-10"></span></div>
+          <div class="skel-row"><span class="skeleton w-15"></span><span class="skeleton flex-fill"></span><span
+              class="skeleton w-15"></span><span class="skeleton w-10"></span></div>
         </div>
 
         <div class="empty-state d-none" id="emptyProductos">
@@ -249,7 +268,8 @@
           <h2>Dashboard</h2>
           <p>Las entregas suman y las devoluciones restan, solo entre el mismo producto.</p>
         </div>
-        <button class="btn-refresh big" id="btnRefrescarDash" title="Actualizar datos"><i class="bi bi-arrow-clockwise"></i></button>
+        <button class="btn-refresh big" id="btnRefrescarDash" title="Actualizar datos"><i
+            class="bi bi-arrow-clockwise"></i></button>
       </div>
 
       <div class="row g-3 g-xl-4">
@@ -356,7 +376,8 @@
                 <input type="radio" name="tipo" id="tipoDevolucion" value="DEVOLUCION">
                 <label for="tipoDevolucion"><i class="bi bi-arrow-return-left"></i> Devolución</label>
               </div>
-              <p class="hint-tipo mt-2 mb-0" id="hintTipo"><i class="bi bi-info-circle"></i> La entrega <b>suma</b> stock al producto.</p>
+              <p class="hint-tipo mt-2 mb-0" id="hintTipo"><i class="bi bi-info-circle"></i> La entrega <b>suma</b>
+                stock al producto.</p>
             </div>
 
             <div class="row g-3 mt-1">
@@ -373,17 +394,20 @@
               </div>
               <div class="col-6 col-md-5 fx-item" style="--d:.27s">
                 <label class="form-label" for="inpCantidad">Cantidad</label>
-                <input type="number" class="form-control" id="inpCantidad" min="1" max="1000000" step="1" value="1" inputmode="numeric">
+                <input type="number" class="form-control" id="inpCantidad" min="1" max="1000000" step="1" value="1"
+                  inputmode="numeric">
                 <div class="invalid-feedback">Debe ser mayor a 0.</div>
               </div>
               <div class="col-6 col-md-7 fx-item" style="--d:.32s">
                 <label class="form-label" for="inpPlaca">Placa del vehículo</label>
-                <input type="text" class="form-control text-uppercase fw-semibold" id="inpPlaca" placeholder="ABC-123" maxlength="7" autocomplete="off" spellcheck="false">
+                <input type="text" class="form-control text-uppercase fw-semibold" id="inpPlaca" placeholder="ABC-123"
+                  maxlength="7" autocomplete="off" spellcheck="false">
                 <div class="invalid-feedback">Formato inválido. Ejemplo: <b>ABC-123</b>.</div>
               </div>
               <div class="col-12 fx-item" style="--d:.37s">
                 <label class="form-label" for="inpObs">Observación <small>(opcional)</small></label>
-                <input type="text" class="form-control" id="inpObs" placeholder="Nota breve sobre el movimiento…" maxlength="255">
+                <input type="text" class="form-control" id="inpObs" placeholder="Nota breve sobre el movimiento…"
+                  maxlength="255">
               </div>
             </div>
 
@@ -423,7 +447,8 @@
             <div class="row g-3">
               <div class="col-12">
                 <label class="form-label" for="inpNombreProd">Nombre del producto</label>
-                <input type="text" class="form-control" id="inpNombreProd" placeholder="Ej. Paracetamol 500 mg" maxlength="120">
+                <input type="text" class="form-control" id="inpNombreProd" placeholder="Ej. ROLLOS TIPO BURBUJA"
+                  maxlength="120">
                 <div class="invalid-feedback">El nombre es obligatorio.</div>
               </div>
               <div class="col-12 col-md-6">
@@ -431,11 +456,8 @@
                 <select class="form-select" id="selUnidad">
                   <option>Unidad</option>
                   <option>Caja</option>
-                  <option>Frasco</option>
-                  <option>Bolsa</option>
-                  <option>Blíster</option>
-                  <option>Galón</option>
-                  <option>Paquete</option>
+                  <option>Etiqueta</option>
+                  <option>Cinta</option>
                 </select>
               </div>
               <div class="col-12 col-md-6">
@@ -447,7 +469,8 @@
               </div>
               <div class="col-12">
                 <label class="form-label" for="txtDescProd">Descripción <small>(opcional)</small></label>
-                <textarea class="form-control" id="txtDescProd" rows="2" maxlength="255" placeholder="Detalle del producto, presentación, laboratorio…"></textarea>
+                <textarea class="form-control" id="txtDescProd" rows="2" maxlength="255"
+                  placeholder="Detalle del producto, presentación, laboratorio…"></textarea>
               </div>
             </div>
           </form>
@@ -498,7 +521,8 @@
               </div>
               <div class="col-12 col-md-6">
                 <label class="form-label" for="editPlaca">Placa</label>
-                <input type="text" class="form-control text-uppercase fw-semibold" id="editPlaca" placeholder="ABC-123" maxlength="7">
+                <input type="text" class="form-control text-uppercase fw-semibold" id="editPlaca" placeholder="ABC-123"
+                  maxlength="7">
                 <div class="invalid-feedback">Formato inválido. Ejemplo: ABC-123.</div>
               </div>
               <div class="col-12 col-md-6">
@@ -506,7 +530,8 @@
                 <input type="text" class="form-control" id="editObs" maxlength="255">
               </div>
             </div>
-            <p class="hint-auto mt-3 mb-0"><i class="bi bi-lock"></i> La fecha y hora original se mantienen intactas.</p>
+            <p class="hint-auto mt-3 mb-0"><i class="bi bi-lock"></i> La fecha y hora original se mantienen intactas.
+            </p>
           </form>
         </div>
         <div class="modal-footer">
@@ -543,4 +568,5 @@
   <script src="/js/api.js"></script>
   <script src="/js/app.js"></script>
 </body>
+
 </html>

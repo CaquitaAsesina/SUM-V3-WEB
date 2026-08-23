@@ -1,29 +1,20 @@
-# Dependencias
-node_modules/
+# Copia este archivo como .env y completa con tus valores reales.
+# NUNCA subas el archivo .env real a GitHub.
 
-# Entorno y credenciales
-.env
-.env.local
-.env.*.local
+# Servidor
+PORT=3000
+NODE_ENV=development
 
-# Registros y temporales
-*.log
-npm-debug.log*
-yarn-error.log*
-tmp/
-temp/
+# MySQL (local o Aiven)
+DB_HOST=localhost
+DB_PORT=3306
+DB_USER=tu_usuario_mysql
+DB_PASSWORD=tu_contraseña_mysql
+DB_NAME=suministros_farmacia
 
-# Sistema operativo
-.DS_Store
-Thumbs.db
-desktop.ini
+# SSL — obligatorio para Aiven y otros servicios en la nube (true/false)
+DB_SSL=true
 
-# Editores / IDEs
-.vscode/
-.idea/
-*.swp
-*.swo
-
-# Build
-dist/
-build/
+# Ruta opcional al certificado CA descargado de Aiven Console.
+# Si no se define, se busca automáticamente en backend/certs/ca.pem
+# DB_CA_PATH=/ruta/completa/ca.pem
