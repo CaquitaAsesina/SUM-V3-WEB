@@ -3,10 +3,9 @@ const bcrypt = require('bcrypt');
 
 exports.login = async (req, res) => {
   const usuario = String(req.body?.usuario ?? '').trim();
-  const contrasena = String(req.body?.contrasena ?? '');
 
-  if (!usuario || !contrasena) {
-    return res.status(400).json({ error: 'Usuario y contraseña son obligatorios' });
+  if (!usuario) {
+    return res.status(400).json({ error: 'El usuario es obligatorio' });
   }
 
   try {
@@ -16,13 +15,7 @@ exports.login = async (req, res) => {
     );
 
     if (!user) {
-      return res.status(401).json({ error: 'Credenciales inválidas' });
-    }
-
-    const passwordMatch = await bcrypt.compare(contrasena, user.contrasena);
-
-    if (!passwordMatch) {
-      return res.status(401).json({ error: 'Credenciales inválidas' });
+      return res.status(401).json({ error: 'Usuario no encontrado' });
     }
 
     // Update last access

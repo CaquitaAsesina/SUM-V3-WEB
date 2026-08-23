@@ -43,17 +43,15 @@ async function handleLogin(e) {
   e.preventDefault();
 
   const username = $('#loginUser').value.trim();
-  const password = $('#loginPass').value;
   const loginBtn = $('#loginBtn');
-  const inputGroups = $$('.login-input-group');
+  const userInput = $('#loginUser');
 
   // Reset errors
-  inputGroups.forEach(ig => ig.classList.remove('error'));
+  userInput.closest('.login-input-group').classList.remove('error');
 
   // Validate
-  if (!username || !password) {
-    if (!username) inputGroups[0].classList.add('error');
-    if (!password) inputGroups[1].classList.add('error');
+  if (!username) {
+    userInput.closest('.login-input-group').classList.add('error');
     return;
   }
 
@@ -66,7 +64,7 @@ async function handleLogin(e) {
     // Call API for authentication
     const response = await api('/auth/login', {
       method: 'POST',
-      body: { usuario: username, contrasena: password }
+      body: { usuario: username }
     });
 
     // Success - store user and show welcome animation
@@ -74,7 +72,7 @@ async function handleLogin(e) {
     showWelcomeAnimation(username, currentUser.nombre_completo);
   } catch (err) {
     // Invalid credentials
-    inputGroups.forEach(ig => ig.classList.add('error'));
+    userInput.closest('.login-input-group').classList.add('error');
     loginBtn.disabled = false;
     loginBtn.querySelector('.login-btn-text').classList.remove('d-none');
     loginBtn.querySelector('.login-btn-loading').classList.add('d-none');
