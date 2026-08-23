@@ -191,6 +191,7 @@
                 <th>Producto</th>
                 <th class="text-center">Cant.</th>
                 <th>Placa</th>
+                <th>N° Guía</th>
                 <th>Fecha y hora</th>
                 <th class="text-end">Acciones</th>
               </tr>
@@ -405,9 +406,9 @@
                 <div class="invalid-feedback">Formato inválido. Ejemplo: <b>ABC-123</b>.</div>
               </div>
               <div class="col-12 fx-item" style="--d:.37s">
-                <label class="form-label" for="inpObs">Observación <small>(opcional)</small></label>
-                <input type="text" class="form-control" id="inpObs" placeholder="Nota breve sobre el movimiento…"
-                  maxlength="255">
+                <label class="form-label" for="inpGuia">Número de guía</label>
+                <input type="text" class="form-control fw-semibold" id="inpGuia" placeholder="Ej. 119922884456" maxlength="30" inputmode="numeric" autocomplete="off" spellcheck="false">
+                <div class="invalid-feedback">Obligatorio: solo dígitos, entre 6 y 30.</div>
               </div>
             </div>
 
@@ -526,8 +527,10 @@
                 <div class="invalid-feedback">Formato inválido. Ejemplo: ABC-123.</div>
               </div>
               <div class="col-12 col-md-6">
-                <label class="form-label" for="editObs">Observación <small>(opcional)</small></label>
-                <input type="text" class="form-control" id="editObs" maxlength="255">
+                <label class="form-label" for="editGuia">Número de guía</label>
+                <input type="text" class="form-control fw-semibold" id="editGuia" maxlength="30" inputmode="numeric"
+                  autocomplete="off" spellcheck="false">
+                <div class="invalid-feedback">Obligatorio: solo dígitos, entre 6 y 30.</div>
               </div>
             </div>
             <p class="hint-auto mt-3 mb-0"><i class="bi bi-lock"></i> La fecha y hora original se mantienen intactas.

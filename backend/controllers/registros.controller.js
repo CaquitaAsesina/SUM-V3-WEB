@@ -20,7 +20,7 @@ exports.listar = async (_req, res) => {
   try {
     const [rows] = await db.query(`
       SELECT r.id, r.codigo, r.tipo, r.producto_id, r.cantidad, r.placa,
-             r.observacion, r.fecha_hora,
+             r.numero_guia, r.fecha_hora,
              p.nombre AS producto_nombre, p.codigo AS producto_codigo, p.unidad
         FROM registros r
         JOIN productos p ON p.id = r.producto_id
@@ -58,12 +58,12 @@ async function validarDatos(conn, body) {
     return { error: 'Formato de placa inválido. Usa el formato ABC-123' };
   }
 
-  const observacion = String(body?.observacion ?? '').trim() || null;
-  if (observacion && observacion.length > 255) {
-    return { error: 'La observación es demasiado larga' };
+  const numeroGuia = String(body?.numero_guia ?? '').replace(/[\s.-]/g, '');
+  if (!/^\d{6,30}$/.test(numeroGuia)) {
+    return { error: 'El número de guía es obligatorio: solo dígitos, entre 6 y 30' };
   }
 
-  return { tipo, productoId, cantidad, placa, observacion };
+  return { tipo, productoId, cantidad, placa, numeroGuia };
 }
 
 exports.crear = async (req, res) => {
@@ -74,9 +74,9 @@ exports.crear = async (req, res) => {
 
     await conn.beginTransaction();
     const [ins] = await conn.execute(
-      `INSERT INTO registros (tipo, producto_id, cantidad, placa, observacion)
+      `INSERT INTO registros (tipo, producto_id, cantidad, placa, numero_guia)
        VALUES (?, ?, ?, ?, ?)`,
-      [datos.tipo, datos.productoId, datos.cantidad, datos.placa, datos.observacion]
+      [datos.tipo, datos.productoId, datos.cantidad, datos.placa, datos.numeroGuia]
     );
 
     const placaLimpia = datos.placa.replace('-', '');
@@ -119,9 +119,9 @@ exports.actualizar = async (req, res) => {
     await conn.beginTransaction();
     await conn.execute(
       `UPDATE registros
-          SET tipo = ?, producto_id = ?, cantidad = ?, placa = ?, observacion = ?
+          SET tipo = ?, producto_id = ?, cantidad = ?, placa = ?, numero_guia = ?
         WHERE id = ?`,
-      [datos.tipo, datos.productoId, datos.cantidad, datos.placa, datos.observacion, id]
+      [datos.tipo, datos.productoId, datos.cantidad, datos.placa, datos.numeroGuia, id]
     );
     await conn.commit();
 

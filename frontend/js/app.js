@@ -232,7 +232,7 @@ function registrosFiltrados() {
   return state.registros.filter(r => {
     if (state.filtroTipo !== 'TODOS' && r.tipo !== state.filtroTipo) return false;
     if (!q) return true;
-    return [r.codigo, r.placa, r.producto_nombre].some(v =>
+    return [r.codigo, r.placa, r.producto_nombre, r.numero_guia].some(v =>
       String(v ?? '').toLowerCase().includes(q)
     );
   });
@@ -275,6 +275,7 @@ function renderRegistros() {
           <span class="cantidad-chip ${r.tipo === 'ENTREGA' ? 'pos' : 'neg'}">${r.tipo === 'ENTREGA' ? '+' : '−'}${r.cantidad}</span>
         </td>
         <td><span class="badge badge-placa">${esc(r.placa)}</span></td>
+        <td><span class="badge badge-code">${esc(r.numero_guia)}</span></td>
         <td><span class="small text-muted-lila" style="white-space:nowrap">${fmtFecha(r.fecha_hora)}</span></td>
         <td class="text-end text-nowrap">
           <button class="btn-action" data-action="edit-registro" data-id="${r.id}" title="Editar"><i class="bi bi-pencil-square"></i></button>
@@ -352,7 +353,7 @@ async function exportarRegistrosExcel() {
     const wb = new ExcelJS.Workbook();
     const ws = wb.addWorksheet('Registros', { views: [{ state: 'frozen', ySplit: 3 }] });
 
-    ws.columns = [{ width: 17 }, { width: 13 }, { width: 34 }, { width: 10 }, { width: 10 }, { width: 11 }, { width: 21 }, { width: 32 }];
+    ws.columns = [{ width: 17 }, { width: 13 }, { width: 34 }, { width: 10 }, { width: 10 }, { width: 11 }, { width: 20 }, { width: 21 }];
 
     ws.mergeCells('A1:H1');
     const titulo = ws.getCell('A1');
@@ -367,7 +368,7 @@ async function exportarRegistrosExcel() {
     sub.font = { name: 'Segoe UI', size: 9, italic: true, color: { argb: 'FF8A84A3' } };
 
     const headerRow = ws.getRow(3);
-    headerRow.values = ['Código', 'Tipo', 'Producto', 'Cantidad', 'Unidad', 'Placa', 'Fecha y hora', 'Observación'];
+    headerRow.values = ['Código', 'Tipo', 'Producto', 'Cantidad', 'Unidad', 'Placa', 'N° Guía', 'Fecha y hora'];
     headerRow.height = 22;
     headerRow.eachCell(c => {
       c.font = { name: 'Segoe UI', size: 11, bold: true, color: { argb: 'FFFFFFFF' } };
@@ -383,11 +384,12 @@ async function exportarRegistrosExcel() {
         Number(r.cantidad),
         r.unidad,
         r.placa,
-        fmtFecha(r.fecha_hora),
-        r.observacion || ''
+        r.numero_guia || '',
+        fmtFecha(r.fecha_hora)
       ]);
       row.getCell(4).alignment = { horizontal: 'center' };
       row.getCell(6).font = { name: 'Consolas', size: 10 };
+      row.getCell(7).font = { name: 'Consolas', size: 10 };
       row.getCell(2).font = { name: 'Segoe UI', size: 10, bold: true, color: { argb: r.tipo === 'ENTREGA' ? 'FF0F9D63' : 'FFD6336C' } };
       if (i % 2 === 0) {
         row.eachCell(c => { c.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFF7F5FF' } }; });
@@ -464,7 +466,7 @@ $$('input[name="tipo"]').forEach(r => r.addEventListener('change', () => {
 }));
 
 function abrirRegistroNuevo() {
-  ['#selProducto', '#inpCantidad', '#inpPlaca'].forEach(s => $(s).classList.remove('is-invalid'));
+  ['#selProducto', '#inpCantidad', '#inpPlaca', '#inpGuia'].forEach(s => $(s).classList.remove('is-invalid'));
   $('#formRegistro').reset();
   $('#tipoEntrega').checked = true;
   $('#hintTipo').innerHTML = hintsTipo.ENTREGA;
@@ -498,6 +500,11 @@ $('#formRegistro').addEventListener('submit', async e => {
   if (!(cantidad >= 1)) { inpCantidad.classList.add('is-invalid'); ok = false; }
   if (!validarPlaca(placa)) { inpPlaca.classList.add('is-invalid'); ok = false; }
 
+  const inpGuia = $('#inpGuia');
+  const guia = inpGuia.value.replace(/[\s.-]/g, '');
+  inpGuia.classList.remove('is-invalid');
+  if (!/^\d{6,30}$/.test(guia)) { inpGuia.classList.add('is-invalid'); ok = false; }
+
   if (!ok) { toast('Revisa los campos marcados en rojo', 'warning'); return; }
 
   const btn = $('#btnGuardarRegistro');
@@ -512,7 +519,7 @@ $('#formRegistro').addEventListener('submit', async e => {
         producto_id: productoId,
         cantidad,
         placa,
-        observacion: $('#inpObs').value.trim()
+        numero_guia: $('#inpGuia').value.replace(/[\s.-]/g, '')
       }
     });
     toast(`Registro ${nuevo.codigo} guardado correctamente`);
@@ -539,8 +546,8 @@ function abrirModalRegistro(r) {
   $('#editSelProducto').value = r.producto_id;
   $('#editCantidad').value = r.cantidad;
   $('#editPlaca').value = r.placa;
-  $('#editObs').value = r.observacion || '';
-  ['#editSelProducto', '#editCantidad', '#editPlaca'].forEach(s => $(s).classList.remove('is-invalid'));
+  $('#editGuia').value = r.numero_guia || '';
+  ['#editSelProducto', '#editCantidad', '#editPlaca', '#editGuia'].forEach(s => $(s).classList.remove('is-invalid'));
   bootstrap.Modal.getOrCreateInstance($('#modalRegistroEdit')).show();
 }
 
@@ -553,10 +560,14 @@ $('#btnGuardarRegistroEdit').addEventListener('click', async () => {
   const placa = $('#editPlaca').value.trim().toUpperCase();
 
   let ok = true;
-  ['#editSelProducto', '#editCantidad', '#editPlaca'].forEach(s => $(s).classList.remove('is-invalid'));
+  ['#editSelProducto', '#editCantidad', '#editPlaca', '#editGuia'].forEach(s => $(s).classList.remove('is-invalid'));
   if (!productoId) { $('#editSelProducto').classList.add('is-invalid'); ok = false; }
   if (!(cantidad >= 1)) { $('#editCantidad').classList.add('is-invalid'); ok = false; }
   if (!validarPlaca(placa)) { $('#editPlaca').classList.add('is-invalid'); ok = false; }
+
+  const editGuia = $('#editGuia').value.replace(/[\s.-]/g, '');
+  if (!/^\d{6,30}$/.test(editGuia)) { $('#editGuia').classList.add('is-invalid'); ok = false; }
+
   if (!ok) { toast('Revisa los campos marcados en rojo', 'warning'); return; }
 
   const btn = $('#btnGuardarRegistroEdit');
@@ -570,7 +581,7 @@ $('#btnGuardarRegistroEdit').addEventListener('click', async () => {
         producto_id: productoId,
         cantidad,
         placa,
-        observacion: $('#editObs').value.trim()
+        numero_guia: editGuia
       }
     });
     toast(`Registro ${r.codigo} actualizado`);

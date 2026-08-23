@@ -44,7 +44,7 @@ CREATE TABLE registros (
   producto_id INT UNSIGNED NOT NULL,
   cantidad    INT UNSIGNED NOT NULL,
   placa       VARCHAR(8)   NOT NULL,
-  observacion VARCHAR(255) NULL,
+  numero_guia VARCHAR(30)  NOT NULL DEFAULT '',
   fecha_hora  DATETIME     NOT NULL DEFAULT CURRENT_TIMESTAMP,
   CONSTRAINT fk_registro_producto
     FOREIGN KEY (producto_id) REFERENCES productos(id)
