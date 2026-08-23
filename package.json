@@ -1,0 +1,20 @@
+{
+  "name": "suministros-farmacias-peruanas",
+  "version": "1.0.0",
+  "description": "Sistema escalable de gestión de suministros para farmacias peruanas",
+  "main": "backend/server.js",
+  "scripts": {
+    "start": "node backend/server.js",
+    "dev": "node --watch backend/server.js"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "type": "commonjs",
+  "dependencies": {
+    "cors": "^2.8.6",
+    "dotenv": "^16.6.1",
+    "express": "^5.2.1",
+    "mysql2": "^3.23.4"
+  }
+}
