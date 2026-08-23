@@ -13,6 +13,7 @@ USE suministros_farmacia;
 SET FOREIGN_KEY_CHECKS = 0;
 DROP TABLE IF EXISTS registros;
 DROP TABLE IF EXISTS productos;
+DROP TABLE IF EXISTS usuarios;
 SET FOREIGN_KEY_CHECKS = 1;
 
 -- ------------------------------------------------------------
@@ -56,8 +57,34 @@ CREATE TABLE registros (
 ) ENGINE=InnoDB;
 
 -- ------------------------------------------------------------
+-- TABLA: usuarios
+-- Usuarios del sistema con roles de acceso
+-- ------------------------------------------------------------
+CREATE TABLE usuarios (
+  id             INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+  usuario        VARCHAR(50)  NOT NULL UNIQUE,
+  contrasena     VARCHAR(255) NOT NULL,
+  nombre_completo VARCHAR(120) NOT NULL,
+  rol            ENUM('ADMIN','CONSULTA') NOT NULL DEFAULT 'CONSULTA',
+  activo         TINYINT(1)   NOT NULL DEFAULT 1,
+  ultimo_acceso  DATETIME     NULL,
+  creado_en      DATETIME     NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  actualizado_en DATETIME     NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  INDEX idx_usu_usuario (usuario),
+  INDEX idx_usu_rol (rol)
+) ENGINE=InnoDB;
+
+-- ------------------------------------------------------------
 -- Datos de ejemplo
 -- ------------------------------------------------------------
+-- ------------------------------------------------------------
+-- Usuario administrador por defecto
+-- (la contraseña debe hashearse con bcrypt al insertar)
+-- ------------------------------------------------------------
+-- Para generar el hash: bcrypt.hashSync('saltamonteXD2003*', 10)
+-- INSERT INTO usuarios (usuario, contrasena, nombre_completo, rol)
+-- VALUES ('FP76270486', '$2a$10$<HASH_GENERADO>', 'Administrador', 'ADMIN');
+
 INSERT INTO productos (codigo, nombre, descripcion, unidad) VALUES
 ('PRD-0001', 'Paracetamol 500 mg',   'Tabletas analgésicas · caja x 100', 'Caja'),
 ('PRD-0002', 'Amoxicilina 500 mg',   'Cápsulas antibióticas · caja x 50', 'Caja'),

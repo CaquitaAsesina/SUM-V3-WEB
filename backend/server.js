@@ -11,6 +11,7 @@ app.use(express.static(path.join(__dirname, '..', 'frontend')));
 
 app.get('/api/health', (_req, res) => res.json({ ok: true, servicio: 'suministros-api' }));
 
+app.use('/api/auth', require('./routes/auth.routes'));
 app.use('/api/productos', require('./routes/productos.routes'));
 app.use('/api/registros', require('./routes/registros.routes'));
 app.use('/api/dashboard', require('./routes/dashboard.routes'));

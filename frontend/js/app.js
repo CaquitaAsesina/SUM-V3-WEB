@@ -1,6 +1,162 @@
 const $ = (s, c = document) => c.querySelector(s);
 const $$ = (s, c = document) => [...c.querySelectorAll(s)];
 
+/* ========== LOGIN SYSTEM ========== */
+
+let currentUser = null;
+
+function initLogin() {
+  // Check if already logged in
+  const savedUser = sessionStorage.getItem('currentUser');
+  if (savedUser) {
+    try {
+      currentUser = JSON.parse(savedUser);
+      showMainApp();
+      return;
+    } catch (e) {
+      sessionStorage.removeItem('currentUser');
+    }
+  }
+
+  // Show login screen
+  const loginScreen = $('#loginScreen');
+  loginScreen.classList.remove('d-none');
+
+  // Toggle password visibility
+  const togglePassBtn = $('#togglePass');
+  const passInput = $('#loginPass');
+
+  togglePassBtn.addEventListener('click', () => {
+    const isPassword = passInput.type === 'password';
+    passInput.type = isPassword ? 'text' : 'password';
+    togglePassBtn.innerHTML = isPassword 
+      ? '<i class="bi bi-eye-slash"></i>' 
+      : '<i class="bi bi-eye"></i>';
+  });
+
+  // Handle form submission
+  const loginForm = $('#loginForm');
+  loginForm.addEventListener('submit', handleLogin);
+}
+
+async function handleLogin(e) {
+  e.preventDefault();
+
+  const username = $('#loginUser').value.trim();
+  const password = $('#loginPass').value;
+  const loginBtn = $('#loginBtn');
+  const inputGroups = $$('.login-input-group');
+
+  // Reset errors
+  inputGroups.forEach(ig => ig.classList.remove('error'));
+
+  // Validate
+  if (!username || !password) {
+    if (!username) inputGroups[0].classList.add('error');
+    if (!password) inputGroups[1].classList.add('error');
+    return;
+  }
+
+  // Show loading state
+  loginBtn.disabled = true;
+  loginBtn.querySelector('.login-btn-text').classList.add('d-none');
+  loginBtn.querySelector('.login-btn-loading').classList.remove('d-none');
+
+  try {
+    // Call API for authentication
+    const response = await api('/auth/login', {
+      method: 'POST',
+      body: { usuario: username, contrasena: password }
+    });
+
+    // Success - store user and show welcome animation
+    currentUser = response.usuario;
+    showWelcomeAnimation(username, currentUser.nombre_completo);
+  } catch (err) {
+    // Invalid credentials
+    inputGroups.forEach(ig => ig.classList.add('error'));
+    loginBtn.disabled = false;
+    loginBtn.querySelector('.login-btn-text').classList.remove('d-none');
+    loginBtn.querySelector('.login-btn-loading').classList.add('d-none');
+
+    // Shake animation on the button
+    loginBtn.style.animation = 'shake .4s ease-in-out';
+    setTimeout(() => { loginBtn.style.animation = ''; }, 400);
+  }
+}
+
+function showWelcomeAnimation(username, nombreCompleto) {
+  const loginScreen = $('#loginScreen');
+  const welcomeOverlay = $('#welcomeOverlay');
+
+  // Update welcome text
+  if (nombreCompleto) {
+    $('.welcome-user').textContent = nombreCompleto;
+  }
+
+  // Hide login with animation
+  loginScreen.classList.add('hiding');
+
+  setTimeout(() => {
+    loginScreen.classList.add('d-none');
+    welcomeOverlay.classList.remove('d-none');
+
+    // Create confetti particles
+    createParticles(welcomeOverlay);
+
+    // After welcome animation, show main app
+    setTimeout(() => {
+      welcomeOverlay.classList.add('hiding');
+
+      setTimeout(() => {
+        welcomeOverlay.classList.add('d-none');
+        sessionStorage.setItem('currentUser', JSON.stringify(currentUser));
+        showMainApp();
+      }, 600);
+    }, 3000);
+  }, 500);
+}
+
+function createParticles(container) {
+  const colors = ['#a78bfa', '#c4b5fd', '#8b5cf6', '#6d28d9', '#4ade80', '#fbbf24', '#f472b6'];
+
+  for (let i = 0; i < 40; i++) {
+    const particle = document.createElement('div');
+    particle.className = 'particle';
+    particle.style.cssText = `
+      left: ${Math.random() * 100}%;
+      top: -20px;
+      width: ${6 + Math.random() * 8}px;
+      height: ${6 + Math.random() * 8}px;
+      background: ${colors[Math.floor(Math.random() * colors.length)]};
+      animation: particleFall ${2 + Math.random() * 3}s linear ${Math.random() * 1}s forwards;
+      opacity: ${0.6 + Math.random() * 0.4};
+    `;
+    container.appendChild(particle);
+
+    // Remove particle after animation
+    setTimeout(() => particle.remove(), 5000);
+  }
+}
+
+function showMainApp() {
+  $('#loginScreen').classList.add('d-none');
+  $('#welcomeOverlay').classList.add('d-none');
+  $('#mainApp').classList.remove('d-none');
+  
+  // Initialize main app
+  initMainApp();
+}
+
+// Initialize login on DOM ready
+if (document.readyState === 'loading') {
+  document.addEventListener('DOMContentLoaded', initLogin);
+} else {
+  initLogin();
+}
+
+/* ========== MAIN APP ========== */
+
 const state = {
   productos: [],
   registros: [],
@@ -66,6 +222,7 @@ function navigate(view) {
   $$('.view').forEach(v => v.classList.toggle('active', v.id === `view-${view}`));
   window.scrollTo({ top: 0, behavior: 'smooth' });
   if (view === 'dashboard') cargarDashboard();
+  if (view === 'usuarios') cargarUsuarios();
 }
 
 $$('.nav-link-module').forEach(a => a.addEventListener('click', () => navigate(a.dataset.view)));
@@ -639,6 +796,34 @@ document.addEventListener('click', async e => {
         await cargarRegistros();
       }
     });
+
+  } else if (action === 'del-usuario') {
+    const u = state.usuarios.find(x => x.id === id);
+    if (!u) return;
+    confirmar({
+      titulo: `¿Eliminar usuario "${u.nombre_completo}"?`,
+      mensaje: `El usuario ${u.usuario} será eliminado del sistema. Esta acción no se puede deshacer.`,
+      onOk: async () => {
+        await api(`/auth/usuarios/${id}`, { method: 'DELETE' });
+        toast('Usuario eliminado correctamente');
+        await cargarUsuarios();
+      }
+    });
+
+  } else if (action === 'toggle-usuario') {
+    const activo = Number(btn.dataset.activo);
+    const u = state.usuarios.find(x => x.id === id);
+    if (!u) return;
+    const accion = activo ? 'activar' : 'desactivar';
+    confirmar({
+      titulo: `¿${accion.charAt(0).toUpperCase() + accion.slice(1)} usuario?`,
+      mensaje: `El usuario ${u.usuario} será ${accion === 'activar' ? 'activado' : 'desactivado'}.`,
+      onOk: async () => {
+        await api(`/auth/usuarios/${id}/estado`, { method: 'PUT', body: { activo: !!activo } });
+        toast(`Usuario ${accion === 'activar' ? 'activado' : 'desactivado'}`);
+        await cargarUsuarios();
+      }
+    });
   }
 });
 
@@ -730,17 +915,130 @@ const io = new IntersectionObserver(entries => {
 }, { threshold: .1 });
 $$('.reveal').forEach(el => io.observe(el));
 
-/* ---------- init ---------- */
+/* ---------- usuarios ---------- */
 
-(async function init() {
-  tick();
+state.usuarios = [];
+
+async function cargarUsuarios() {
+  state.usuarios = await api('/auth/usuarios');
+  renderUsuarios();
+}
+
+function renderUsuarios() {
+  const lista = state.usuarios;
+  const hay = lista.length > 0;
+
+  $('#contadorUsuarios').textContent = hay ? `${lista.length} usuario(s) registrado(s)` : 'Sin usuarios';
+  $('#skeletonUsuarios').classList.add('d-none');
+
+  $('#emptyUsuarios').classList.toggle('d-none', hay);
+  $('#wrapTablaUsuarios').classList.toggle('d-none', !hay);
+
+  if (!hay) return;
+
+  $('#tbodyUsuarios').innerHTML = lista.map((u, i) => {
+    const isAdmin = u.rol === 'ADMIN';
+    const esMismoUsuario = currentUser && currentUser.id === u.id;
+    return `
+      <tr style="--d:${Math.min(i * .04, .35)}s">
+        <td><span class="badge badge-code">${esc(u.usuario)}</span></td>
+        <td><span class="prod-name">${esc(u.nombre_completo)}</span></td>
+        <td class="text-center">
+          <span class="badge ${isAdmin ? 'badge-entrega' : 'badge-devolucion'}">${isAdmin ? 'Admin' : 'Consulta'}</span>
+        </td>
+        <td class="text-center">
+          <span class="badge ${u.activo ? 'badge-activo' : 'badge-inactivo'}">${u.activo ? 'Activo' : 'Inactivo'}</span>
+        </td>
+        <td class="d-none d-md-table-cell"><span class="small text-muted-lila">${u.ultimo_acceso ? fmtFecha(u.ultimo_acceso) : 'Nunca'}</span></td>
+        <td class="text-end text-nowrap">
+          ${!esMismoUsuario ? `
+            <button class="btn-action" data-action="toggle-usuario" data-id="${u.id}" data-activo="${u.activo ? 0 : 1}" title="${u.activo ? 'Desactivar' : 'Activar'}">
+              <i class="bi bi-${u.activo ? 'pause-circle' : 'play-circle'}"></i>
+            </button>
+            <button class="btn-action danger" data-action="del-usuario" data-id="${u.id}" title="Eliminar">
+              <i class="bi bi-trash3"></i>
+            </button>
+          ` : '<span class="small text-muted-lila"><i class="bi bi-person-check me-1"></i>Tú</span>'}
+        </td>
+      </tr>`;
+  }).join('');
+}
+
+function abrirModalUsuario() {
+  $('#formUsuario').reset();
+  ['#inpNombreUsuario', '#inpUsuario', '#inpContrasena'].forEach(s => $(s).classList.remove('is-invalid'));
+  bootstrap.Modal.getOrCreateInstance($('#modalUsuario')).show();
+}
+
+$('#btnNuevoUsuario').addEventListener('click', abrirModalUsuario);
+
+$('#btnGuardarUsuario').addEventListener('click', async () => {
+  const nombre = $('#inpNombreUsuario').value.trim();
+  const usuario = $('#inpUsuario').value.trim();
+  const contrasena = $('#inpContrasena').value;
+  const rol = $('#selRol').value;
+
+  let ok = true;
+  ['#inpNombreUsuario', '#inpUsuario', '#inpContrasena'].forEach(s => $(s).classList.remove('is-invalid'));
+
+  if (!nombre) { $('#inpNombreUsuario').classList.add('is-invalid'); ok = false; }
+  if (!usuario) { $('#inpUsuario').classList.add('is-invalid'); ok = false; }
+  if (contrasena.length < 6) { $('#inpContrasena').classList.add('is-invalid'); ok = false; }
+
+  if (!ok) { toast('Revisa los campos marcados en rojo', 'warning'); return; }
+
+  const btn = $('#btnGuardarUsuario');
+  btn.disabled = true;
+  btn.querySelector('.spinner-border').classList.remove('d-none');
+
   try {
-    await Promise.all([cargarProductos(), cargarRegistros()]);
+    await api('/auth/usuarios', {
+      method: 'POST',
+      body: { usuario, contrasena, nombreCompleto: nombre, rol }
+    });
+    toast(`Usuario "${nombre}" creado correctamente`);
+    bootstrap.Modal.getOrCreateInstance($('#modalUsuario')).hide();
+    await cargarUsuarios();
   } catch (err) {
     toast(err.message, 'danger');
-    $('#skeletonRegistros').classList.add('d-none');
-    $('#skeletonProductos').classList.add('d-none');
-    $('#contadorRegistros').textContent = 'Error de conexión';
-    $('#contadorProductos').textContent = 'Error';
+  } finally {
+    btn.disabled = false;
+    btn.querySelector('.spinner-border').classList.add('d-none');
   }
-})();
+});
+
+/* ---------- init ---------- */
+
+function initMainApp() {
+  tick();
+
+  // Show user name in sidebar
+  if (currentUser) {
+    const sidebarUserName = $('#sidebarUserName');
+    if (sidebarUserName) sidebarUserName.textContent = currentUser.nombre_completo || currentUser.usuario;
+  }
+
+  // Hide admin-only elements for CONSULTA role
+  if (currentUser && currentUser.rol !== 'ADMIN') {
+    const adminOnlyElements = $$('#btnNuevoUsuario, [data-action="del-usuario"], [data-action="toggle-usuario"]');
+    adminOnlyElements.forEach(el => el.classList.add('d-none'));
+  }
+
+  // Re-observe reveal elements
+  $$('.reveal').forEach(el => {
+    el.classList.remove('visible');
+    io.observe(el);
+  });
+
+  (async function init() {
+    try {
+      await Promise.all([cargarProductos(), cargarRegistros()]);
+    } catch (err) {
+      toast(err.message, 'danger');
+      $('#skeletonRegistros').classList.add('d-none');
+      $('#skeletonProductos').classList.add('d-none');
+      $('#contadorRegistros').textContent = 'Error de conexión';
+      $('#contadorProductos').textContent = 'Error';
+    }
+  })();
+}
