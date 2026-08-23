@@ -14,12 +14,15 @@ if (faltantes.length) {
 
 let ssl;
 if (String(process.env.DB_SSL).toLowerCase() === 'true') {
-  const caPath = process.env.DB_CA_PATH || path.join(__dirname, 'certs', 'ca.pem');
-  if (fs.existsSync(caPath)) {
-    ssl = { ca: fs.readFileSync(caPath), rejectUnauthorized: true };
+  const caContenido = process.env.DB_CA_CERT;
+  const caArchivo = process.env.DB_CA_PATH || path.join(__dirname, 'certs', 'ca.pem');
+  if (caContenido) {
+    ssl = { ca: caContenido.replace(/\\n/g, '\n'), rejectUnauthorized: true };
+  } else if (fs.existsSync(caArchivo)) {
+    ssl = { ca: fs.readFileSync(caArchivo), rejectUnauthorized: true };
   } else {
     ssl = { rejectUnauthorized: false };
-    console.warn('[db] SSL activo sin certificado CA. Descarga ca.pem desde Aiven Console y colócalo en backend/certs/ca.pem para verificación completa.');
+    console.warn('[db] SSL activo sin certificado CA. Configura DB_CA_CERT (contenido del ca.pem) o coloca backend/certs/ca.pem para verificación completa.');
   }
 }
 
