@@ -2,6 +2,15 @@ const db = require('../config/db');
 
 const PLACA_RE = /^[A-Z]{3}[0-9]{3}$/;
 
+function fnvBase36(str) {
+  let h = 2166136261;
+  for (let i = 0; i < str.length; i++) {
+    h ^= str.charCodeAt(i);
+    h = Math.imul(h, 16777619);
+  }
+  return (h >>> 0).toString(36).toUpperCase().padStart(4, '0').slice(0, 4);
+}
+
 function normalizarPlaca(raw) {
   const limpia = String(raw ?? '').toUpperCase().replace(/[^A-Z0-9]/g, '');
   return PLACA_RE.test(limpia) ? `${limpia.slice(0, 3)}-${limpia.slice(3)}` : null;
@@ -70,9 +79,14 @@ exports.crear = async (req, res) => {
       [datos.tipo, datos.productoId, datos.cantidad, datos.placa, datos.observacion]
     );
 
-    const fecha = new Date();
-    const stamp = `${fecha.getFullYear()}${String(fecha.getMonth() + 1).padStart(2, '0')}${String(fecha.getDate()).padStart(2, '0')}`;
-    const codigo = `REG-${stamp}-${String(ins.insertId).padStart(5, '0')}`;
+    const placaLimpia = datos.placa.replace('-', '');
+    const base = `${placaLimpia}|${datos.productoId}|${datos.cantidad}`;
+    let codigo = null;
+    for (let intento = 0; intento < 50 && !codigo; intento++) {
+      const candidato = `${placaLimpia}-${fnvBase36(`${base}#${intento}`)}`;
+      const [[dup]] = await conn.execute('SELECT id FROM registros WHERE codigo = ? LIMIT 1', [candidato]);
+      if (!dup) codigo = candidato;
+    }
     await conn.execute('UPDATE registros SET codigo = ? WHERE id = ?', [codigo, ins.insertId]);
     await conn.commit();
 

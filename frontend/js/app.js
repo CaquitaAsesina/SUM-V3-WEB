@@ -9,7 +9,8 @@ const state = {
   busquedaProd: '',
   productoEdit: null,
   registroEdit: null,
-  confirmAction: null
+  confirmAction: null,
+  exportando: false
 };
 
 /* ---------- helpers ---------- */
@@ -75,7 +76,10 @@ function tick() {
   const n = new Date();
   const fecha = n.toLocaleDateString('es-PE', { weekday: 'long', day: 'numeric', month: 'long' });
   const hora = n.toLocaleTimeString('es-PE', { hour: '2-digit', minute: '2-digit', second: '2-digit' });
-  $('#chipReloj').textContent = `${fecha.charAt(0).toUpperCase() + fecha.slice(1)} · ${hora}`;
+  const chip = $('#chipReloj');
+  if (chip) chip.textContent = `${fecha.charAt(0).toUpperCase() + fecha.slice(1)} · ${hora}`;
+  const relojModal = $('#relojModal');
+  if (relojModal) relojModal.textContent = hora;
 }
 setInterval(tick, 1000);
 
@@ -239,12 +243,20 @@ function renderRegistros() {
   const lista = registrosFiltrados();
   const hay = total > 0;
 
+  const n = new Date();
+  const isoHoy = `${n.getFullYear()}-${String(n.getMonth() + 1).padStart(2, '0')}-${String(n.getDate()).padStart(2, '0')}`;
+  const deHoy = state.registros.filter(r => String(r.fecha_hora).slice(0, 10) === isoHoy);
+  $('#chipHoyTotal').textContent = deHoy.length;
+  $('#chipHoyEnt').textContent = deHoy.filter(r => r.tipo === 'ENTREGA').length;
+  $('#chipHoyDev').textContent = deHoy.filter(r => r.tipo === 'DEVOLUCION').length;
+
   $('#contadorRegistros').textContent = hay ? `${lista.length} de ${total} registros` : 'Sin registros';
   $('#skeletonRegistros').classList.add('d-none');
 
   const mostrarVacio = !hay || lista.length === 0;
   $('#wrapTablaRegistros').classList.toggle('d-none', mostrarVacio);
   $('#emptyRegistros').classList.toggle('d-none', !mostrarVacio);
+  $('#btnNuevoRegistroEmpty').classList.toggle('d-none', !hay);
   $('#emptyRegistrosTitulo').textContent = !hay ? 'Sin registros todavía' : 'Sin resultados';
   $('.empty-state#emptyRegistros p').textContent = !hay
     ? 'Cuando registres una entrega o devolución aparecerá aquí.'
@@ -291,12 +303,152 @@ $('#btnRecargarRegistros').addEventListener('click', async () => {
   } catch (err) { toast(err.message, 'danger'); }
 });
 
+/* ---------- exportación a excel ---------- */
+
+function resetBtnExport(ok = false) {
+  const btn = $('#btnExportar');
+  btn.classList.remove('is-loading');
+  btn.querySelector('.be-spinner').classList.add('d-none');
+  if (ok) {
+    btn.classList.add('is-ok');
+    btn.querySelector('.be-ico').classList.add('d-none');
+    btn.querySelector('.be-done').classList.remove('d-none');
+    btn.querySelector('.be-label').textContent = '¡Exportado!';
+    setTimeout(() => {
+      btn.classList.remove('is-ok');
+      btn.querySelector('.be-done').classList.add('d-none');
+      btn.querySelector('.be-ico').classList.remove('d-none');
+      btn.querySelector('.be-label').textContent = 'Exportar';
+      btn.disabled = false;
+      state.exportando = false;
+    }, 1600);
+  } else {
+    btn.querySelector('.be-label').textContent = 'Exportar';
+    btn.disabled = false;
+    state.exportando = false;
+  }
+}
+
+async function exportarRegistrosExcel() {
+  if (state.exportando) return;
+
+  const lista = registrosFiltrados();
+  if (!lista.length) {
+    toast('No hay registros para exportar con los filtros actuales', 'warning');
+    return;
+  }
+
+  state.exportando = true;
+  const btn = $('#btnExportar');
+  btn.disabled = true;
+  btn.classList.add('is-loading');
+  btn.querySelector('.be-spinner').classList.remove('d-none');
+  btn.querySelector('.be-ico').classList.add('d-none');
+  btn.querySelector('.be-label').textContent = 'Generando…';
+
+  try {
+    await new Promise(r => setTimeout(r, 800));
+
+    const wb = new ExcelJS.Workbook();
+    const ws = wb.addWorksheet('Registros', { views: [{ state: 'frozen', ySplit: 3 }] });
+
+    ws.columns = [{ width: 17 }, { width: 13 }, { width: 34 }, { width: 10 }, { width: 10 }, { width: 11 }, { width: 21 }, { width: 32 }];
+
+    ws.mergeCells('A1:H1');
+    const titulo = ws.getCell('A1');
+    titulo.value = `Historial de movimientos · Suministros Farmacias Peruanas`;
+    titulo.font = { name: 'Segoe UI', size: 13, bold: true, color: { argb: 'FF5B21B6' } };
+    titulo.alignment = { vertical: 'middle' };
+    ws.getRow(1).height = 26;
+
+    ws.mergeCells('A2:H2');
+    const sub = ws.getCell('A2');
+    sub.value = `Exportado el ${new Date().toLocaleString('es-PE')} · ${lista.length} registro(s)`;
+    sub.font = { name: 'Segoe UI', size: 9, italic: true, color: { argb: 'FF8A84A3' } };
+
+    const headerRow = ws.getRow(3);
+    headerRow.values = ['Código', 'Tipo', 'Producto', 'Cantidad', 'Unidad', 'Placa', 'Fecha y hora', 'Observación'];
+    headerRow.height = 22;
+    headerRow.eachCell(c => {
+      c.font = { name: 'Segoe UI', size: 11, bold: true, color: { argb: 'FFFFFFFF' } };
+      c.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF7C3AED' } };
+      c.alignment = { vertical: 'middle', horizontal: 'center' };
+    });
+
+    lista.forEach((r, i) => {
+      const row = ws.addRow([
+        r.codigo,
+        r.tipo === 'ENTREGA' ? 'Entrega' : 'Devolución',
+        r.producto_nombre,
+        Number(r.cantidad),
+        r.unidad,
+        r.placa,
+        fmtFecha(r.fecha_hora),
+        r.observacion || ''
+      ]);
+      row.getCell(4).alignment = { horizontal: 'center' };
+      row.getCell(6).font = { name: 'Consolas', size: 10 };
+      row.getCell(2).font = { name: 'Segoe UI', size: 10, bold: true, color: { argb: r.tipo === 'ENTREGA' ? 'FF0F9D63' : 'FFD6336C' } };
+      if (i % 2 === 0) {
+        row.eachCell(c => { c.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFF7F5FF' } }; });
+      }
+      row.eachCell(c => { c.border = { bottom: { style: 'hair', color: { argb: 'FFECE7F8' } } }; });
+    });
+
+    const buffer = await wb.xlsx.writeBuffer();
+    const blob = new Blob([buffer], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    const f = new Date();
+    const stamp = `${f.getFullYear()}${String(f.getMonth() + 1).padStart(2, '0')}${String(f.getDate()).padStart(2, '0')}_${String(f.getHours()).padStart(2, '0')}${String(f.getMinutes()).padStart(2, '0')}`;
+    a.href = url;
+    a.download = `Registros_${stamp}.xlsx`;
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    URL.revokeObjectURL(url);
+
+    resetBtnExport(true);
+    toast(`Excel generado con ${lista.length} registro(s)`);
+  } catch (err) {
+    toast(err.message, 'danger');
+    resetBtnExport(false);
+  }
+}
+
+$('#btnExportar').addEventListener('click', exportarRegistrosExcel);
+
 /* máscara automática de placa ABC-123 */
+function actualizarPreviewCodigo() {
+  const el = $('#previewCodigo');
+  if (!el) return;
+  const placa = $('#inpPlaca').value.toUpperCase().replace(/[^A-Z0-9]/g, '');
+  const pid = $('#selProducto').value;
+  const cantidad = parseInt($('#inpCantidad').value, 10);
+  if (!placa || placa.length < 6 || !pid || !(cantidad >= 1)) {
+    el.textContent = `${placa || '···'}-····`;
+    return;
+  }
+  el.textContent = `${placa}-${fnvBase36(`${placa}|${pid}|${cantidad}`)}`;
+}
+
+function fnvBase36(str) {
+  let h = 2166136261;
+  for (let i = 0; i < str.length; i++) {
+    h ^= str.charCodeAt(i);
+    h = Math.imul(h, 16777619);
+  }
+  return (h >>> 0).toString(36).toUpperCase().padStart(4, '0').slice(0, 4);
+}
+
 $('#inpPlaca').addEventListener('input', e => {
   let v = e.target.value.toUpperCase().replace(/[^A-Z0-9]/g, '').slice(0, 6);
   if (v.length > 3) v = `${v.slice(0, 3)}-${v.slice(3)}`;
   e.target.value = v;
+  actualizarPreviewCodigo();
 });
+$('#selProducto').addEventListener('change', actualizarPreviewCodigo);
+$('#inpCantidad').addEventListener('input', actualizarPreviewCodigo);
 $('#editPlaca').addEventListener('input', e => {
   let v = e.target.value.toUpperCase().replace(/[^A-Z0-9]/g, '').slice(0, 6);
   if (v.length > 3) v = `${v.slice(0, 3)}-${v.slice(3)}`;
@@ -310,6 +462,21 @@ const hintsTipo = {
 $$('input[name="tipo"]').forEach(r => r.addEventListener('change', () => {
   $('#hintTipo').innerHTML = hintsTipo[r.value];
 }));
+
+function abrirRegistroNuevo() {
+  ['#selProducto', '#inpCantidad', '#inpPlaca'].forEach(s => $(s).classList.remove('is-invalid'));
+  $('#formRegistro').reset();
+  $('#tipoEntrega').checked = true;
+  $('#hintTipo').innerHTML = hintsTipo.ENTREGA;
+  $('#inpCantidad').value = 1;
+  $('#selProducto').selectedIndex = 0;
+  actualizarPreviewCodigo();
+  tick();
+  bootstrap.Modal.getOrCreateInstance($('#modalNuevoRegistro')).show();
+}
+
+$('#btnAbrirRegistro').addEventListener('click', abrirRegistroNuevo);
+$('#btnNuevoRegistroEmpty').addEventListener('click', abrirRegistroNuevo);
 
 $('#formRegistro').addEventListener('submit', async e => {
   e.preventDefault();
@@ -353,6 +520,8 @@ $('#formRegistro').addEventListener('submit', async e => {
     $('#tipoEntrega').checked = true;
     $('#hintTipo').innerHTML = hintsTipo.ENTREGA;
     selProducto.selectedIndex = 0;
+    actualizarPreviewCodigo();
+    bootstrap.Modal.getOrCreateInstance($('#modalNuevoRegistro')).hide();
     await cargarRegistros();
     poblarSelects();
   } catch (err) {
@@ -474,17 +643,20 @@ async function cargarDashboard() {
 
     const { stats, productos } = await api('/dashboard');
 
-    countUp($('#statProductos'), stats.totalProductos);
-    countUp($('#statHoy'), stats.entregasHoy + stats.devolucionesHoy);
-    countUp($('#statEntregadas'), stats.unidadesEntregadas);
-    countUp($('#statDevueltas'), stats.unidadesDevueltas);
+    const ent = Number(stats.unidadesEntregadas) || 0;
+    const dev = Number(stats.unidadesDevueltas) || 0;
 
-    const totalU = stats.unidadesEntregadas + stats.unidadesDevueltas;
-    const pctEnt = totalU > 0 ? Math.round((stats.unidadesEntregadas / totalU) * 100) : 0;
+    countUp($('#statProductos'), Number(stats.totalProductos));
+    countUp($('#statHoy'), Number(stats.entregasHoy) + Number(stats.devolucionesHoy));
+    countUp($('#statEntregadas'), ent);
+    countUp($('#statDevueltas'), dev);
+
+    const totalU = ent + dev;
+    const pctEnt = totalU > 0 ? Math.round((ent / totalU) * 100) : 0;
     $('#donutMov').style.setProperty('--p', pctEnt);
     $('#donutPct').textContent = totalU > 0 ? `${pctEnt}%` : '—';
-    $('#legEntregas').textContent = stats.unidadesEntregadas.toLocaleString('es-PE');
-    $('#legDevoluciones').textContent = stats.unidadesDevueltas.toLocaleString('es-PE');
+    $('#legEntregas').textContent = ent.toLocaleString('es-PE');
+    $('#legDevoluciones').textContent = dev.toLocaleString('es-PE');
 
     $('#emptyDash').classList.toggle('d-none', productos.length > 0);
     $('#listaStock').classList.toggle('d-none', productos.length === 0);
