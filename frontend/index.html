@@ -4,7 +4,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-  <title>Suministros · Farmacias Peruanas</title>
+  <title>Suministros - Farmacias Peruanas</title>
   <link rel="icon"
     href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>💊</text></svg>">
   <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -34,15 +34,15 @@
           <div class="login-brand-icon">
             <i class="bi bi-shield-check"></i>
           </div>
-          <h1 class="login-title">Inventario EPP</h1>
-          <p class="login-subtitle">SISTEMA DE PROTECCIÓN PERSONAL</p>
+          <h1 class="login-title">Suministros</h1>
+          <p class="login-subtitle">FARMACIAS PERUANAS</p>
 
           <div class="login-features">
             <div class="login-feature">
               <div class="lf-icon"><i class="bi bi-box-seam"></i></div>
               <div class="lf-text">
-                <strong>Stock en tiempo real</strong>
-                <span>Disponible, sucio y en lavado</span>
+                <strong>Gestión de productos</strong>
+                <span>Catálogo completo de suministros</span>
               </div>
             </div>
             <div class="login-feature">
@@ -62,7 +62,7 @@
           </div>
 
           <div class="login-footer-text">
-            <i class="bi bi-lock"></i> Conexión cifrada · Acceso restringido por roles
+            <i class="bi bi-lock"></i> Conexión segura · Acceso por roles
           </div>
         </div>
       </div>
@@ -73,8 +73,8 @@
           <div class="login-logo">
             <i class="bi bi-shield-check"></i>
           </div>
-          <h2 class="login-system-title">Farmacias Peruanas Inventario</h2>
-          <p class="login-system-subtitle">SISTEMA DE PROTECCIÓN PERSONAL</p>
+          <h2 class="login-system-title">Suministros · Farmacias Peruanas</h2>
+          <p class="login-system-subtitle">GESTIÓN DE SUMINISTROS</p>
 
           <form id="loginForm" novalidate>
             <div class="login-field">
@@ -82,6 +82,17 @@
               <div class="login-input-group">
                 <i class="bi bi-person"></i>
                 <input type="text" id="loginUser" placeholder="Ingrese su usuario" autocomplete="off" autofocus>
+              </div>
+            </div>
+
+            <div class="login-field">
+              <label class="login-label">CONTRASEÑA</label>
+              <div class="login-input-group">
+                <i class="bi bi-lock"></i>
+                <input type="password" id="loginPass" placeholder="Ingrese su contraseña">
+                <button type="button" class="toggle-pass" id="togglePass">
+                  <i class="bi bi-eye"></i>
+                </button>
               </div>
             </div>
 
@@ -96,29 +107,76 @@
 
           <div class="login-divider"></div>
 
+          <button type="button" class="login-register-btn" id="btnShowRegister">
+            <i class="bi bi-person-plus me-2"></i>Crear una cuenta
+          </button>
+
           <div class="login-info">
-            <i class="bi bi-info-circle"></i> Control y Auditorias
+            <i class="bi bi-info-circle"></i> Sistema de gestión de suministros
           </div>
         </div>
       </div>
     </div>
   </div>
 
-  <!-- Welcome Overlay -->
   <div class="welcome-overlay d-none" id="welcomeOverlay">
     <div class="welcome-content">
-      <div class="welcome-icon">
-        <i class="bi bi-shield-check"></i>
-      </div>
-      <div class="welcome-check">
-        <svg class="checkmark" viewBox="0 0 100 100">
-          <circle class="checkmark-circle" cx="50" cy="50" r="45"/>
-          <path class="checkmark-check" d="M30 52 L44 66 L70 38"/>
+      <div class="welcome-loader">
+        <svg class="loader-ring" viewBox="0 0 120 120">
+          <circle class="loader-track" cx="60" cy="60" r="54"/>
+          <circle class="loader-fill" cx="60" cy="60" r="54"/>
         </svg>
+        <div class="loader-icon">
+          <i class="bi bi-shield-check"></i>
+        </div>
       </div>
-      <h2 class="welcome-text">¡Bienvenido!</h2>
-      <p class="welcome-role">Administrador</p>
-      <div class="welcome-user" id="welcomeUser">FP76270486</div>
+      <div class="welcome-progress">
+        <div class="progress-bar" id="welcomeProgressBar"></div>
+      </div>
+      <h2 class="welcome-text" id="welcomeText">Iniciando sistema...</h2>
+      <p class="welcome-subtext" id="welcomeSubtext">Preparando tu sesión</p>
+    </div>
+  </div>
+
+  <!-- Register Overlay -->
+  <div class="register-overlay d-none" id="registerOverlay">
+    <div class="register-container">
+      <div class="register-form-box">
+        <button type="button" class="register-close" id="btnCloseRegister"><i class="bi bi-x-lg"></i></button>
+        <div class="register-logo"><i class="bi bi-person-plus"></i></div>
+        <h2 class="register-title">Crear cuenta</h2>
+        <p class="register-subtitle">Registra un nuevo usuario en el sistema</p>
+        <form id="formRegister" novalidate>
+          <div class="login-field">
+            <label class="login-label">NOMBRE COMPLETO</label>
+            <div class="login-input-group">
+              <i class="bi bi-person"></i>
+              <input type="text" id="regNombre" placeholder="Ej. Juan Pérez" autocomplete="off">
+            </div>
+          </div>
+          <div class="login-field">
+            <label class="login-label">USUARIO</label>
+            <div class="login-input-group">
+              <i class="bi bi-at"></i>
+              <input type="text" id="regUsuario" placeholder="Ej. JP001" autocomplete="off">
+            </div>
+          </div>
+          <div class="login-field">
+            <label class="login-label">CONTRASEÑA</label>
+            <div class="login-input-group">
+              <i class="bi bi-lock"></i>
+              <input type="password" id="regPass" placeholder="Mínimo 6 caracteres" minlength="6">
+            </div>
+          </div>
+          <button type="submit" class="login-btn" id="registerBtn">
+            <span class="login-btn-text"><i class="bi bi-check-lg me-2"></i>Registrarse</span>
+            <span class="login-btn-loading d-none">
+              <span class="spinner-border spinner-border-sm" role="status"></span>
+              Creando cuenta...
+            </span>
+          </button>
+        </form>
+      </div>
     </div>
   </div>
 
@@ -159,13 +217,14 @@
         <i class="bi bi-people"></i><span>Usuarios</span>
         <em class="nav-dot"></em>
       </a>
-      <a class="nav-link-module disabled-link">
-        <i class="bi bi-truck"></i><span>Transportistas</span>
-      </a>
     </nav>
 
     <div class="sidebar-footer">
       <div class="sf-chip"><span class="pulse-dot"></span> <span id="sidebarUserName">Admin</span> </div>
+      <div class="sf-actions mt-2">
+        <button class="sf-btn" id="btnChangePass" title="Cambiar contraseña"><i class="bi bi-key"></i></button>
+        <button class="sf-btn danger" id="btnLogout" title="Cerrar sesión"><i class="bi bi-box-arrow-left"></i></button>
+      </div>
     </div>
   </aside>
 
@@ -194,7 +253,6 @@
       <a class="nav-link-module" data-view="usuarios" data-bs-dismiss="offcanvas">
         <i class="bi bi-people"></i><span>Usuarios</span><em class="nav-dot"></em>
       </a>
-      <a class="nav-link-module disabled-link"><i class="bi bi-truck"></i><span>Transportistas</span></a>
     </div>
   </div>
 
@@ -753,6 +811,73 @@
             <span class="spinner-border spinner-border-sm d-none me-2"></span>
             <i class="bi bi-check2 me-1 btn-ico"></i>Crear usuario
           </button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="modal fade" id="modalChangePass" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+      <div class="modal-content modal-app fx-pop">
+        <div class="modal-header">
+          <div class="mh-title">
+            <div class="ca-icon grad-a sm"><i class="bi bi-key"></i></div>
+            <div>
+              <h5 class="modal-title">Cambiar contraseña</h5>
+              <small>Actualiza tu contraseña de acceso</small>
+            </div>
+          </div>
+          <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Cerrar"></button>
+        </div>
+        <div class="modal-body">
+          <form id="formChangePass" novalidate>
+            <div class="row g-3">
+              <div class="col-12">
+                <label class="form-label" for="inpNewPass">Nueva contraseña</label>
+                <input type="password" class="form-control" id="inpNewPass" placeholder="Mínimo 6 caracteres" minlength="6">
+                <div class="invalid-feedback">Mínimo 6 caracteres.</div>
+              </div>
+              <div class="col-12">
+                <label class="form-label" for="inpConfirmPass">Confirmar contraseña</label>
+                <input type="password" class="form-control" id="inpConfirmPass" placeholder="Repite la contraseña">
+                <div class="invalid-feedback">Las contraseñas no coinciden.</div>
+              </div>
+            </div>
+          </form>
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-ghost" data-bs-dismiss="modal">Cancelar</button>
+          <button type="button" class="btn btn-gradient" id="btnSavePass">
+            <span class="spinner-border spinner-border-sm d-none me-2"></span>
+            <i class="bi bi-check2 me-1 btn-ico"></i>Guardar
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="modal fade" id="modalActivar" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered modal-sm">
+      <div class="modal-content modal-app fx-pop">
+        <div class="modal-body p-4 text-center">
+          <div class="confirm-icon mx-auto" style="background: linear-gradient(135deg, #e7f8ef, #d1fae5); color: #0f9d63;">
+            <i class="bi bi-person-check"></i>
+          </div>
+          <h5 class="mt-3 fw-bold">Activar usuario</h5>
+          <p class="text-muted-lila mb-3" id="activarUsuarioNombre">—</p>
+          <div class="text-start mb-3">
+            <label class="form-label">Asignar rol</label>
+            <select class="form-select" id="selActivarRol">
+              <option value="CONSULTA">Consulta (solo lectura)</option>
+              <option value="ADMIN">Administrador (acceso total)</option>
+            </select>
+          </div>
+          <div class="d-flex gap-2 justify-content-center">
+            <button type="button" class="btn btn-ghost flex-fill" data-bs-dismiss="modal">Cancelar</button>
+            <button type="button" class="btn btn-gradient flex-fill" id="btnActivarOk">
+              <i class="bi bi-check2 me-1"></i>Activar
+            </button>
+          </div>
         </div>
       </div>
     </div>

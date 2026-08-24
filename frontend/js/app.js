@@ -43,15 +43,17 @@ async function handleLogin(e) {
   e.preventDefault();
 
   const username = $('#loginUser').value.trim();
+  const password = $('#loginPass').value;
   const loginBtn = $('#loginBtn');
-  const userInput = $('#loginUser');
+  const inputGroups = $$('.login-input-group');
 
   // Reset errors
-  userInput.closest('.login-input-group').classList.remove('error');
+  inputGroups.forEach(ig => ig.classList.remove('error'));
 
   // Validate
-  if (!username) {
-    userInput.closest('.login-input-group').classList.add('error');
+  if (!username || !password) {
+    if (!username) inputGroups[0].classList.add('error');
+    if (!password) inputGroups[1].classList.add('error');
     return;
   }
 
@@ -64,7 +66,7 @@ async function handleLogin(e) {
     // Call API for authentication
     const response = await api('/auth/login', {
       method: 'POST',
-      body: { usuario: username }
+      body: { usuario: username, contrasena: password }
     });
 
     // Success - store user and show welcome animation
@@ -72,7 +74,7 @@ async function handleLogin(e) {
     showWelcomeAnimation(username, currentUser.nombre_completo);
   } catch (err) {
     // Invalid credentials
-    userInput.closest('.login-input-group').classList.add('error');
+    inputGroups.forEach(ig => ig.classList.add('error'));
     loginBtn.disabled = false;
     loginBtn.querySelector('.login-btn-text').classList.remove('d-none');
     loginBtn.querySelector('.login-btn-loading').classList.add('d-none');
@@ -86,11 +88,9 @@ async function handleLogin(e) {
 function showWelcomeAnimation(username, nombreCompleto) {
   const loginScreen = $('#loginScreen');
   const welcomeOverlay = $('#welcomeOverlay');
-
-  // Update welcome text
-  if (nombreCompleto) {
-    $('.welcome-user').textContent = nombreCompleto;
-  }
+  const progressBar = $('#welcomeProgressBar');
+  const welcomeText = $('#welcomeText');
+  const welcomeSubtext = $('#welcomeSubtext');
 
   // Hide login with animation
   loginScreen.classList.add('hiding');
@@ -99,47 +99,95 @@ function showWelcomeAnimation(username, nombreCompleto) {
     loginScreen.classList.add('d-none');
     welcomeOverlay.classList.remove('d-none');
 
-    // Create confetti particles
-    createParticles(welcomeOverlay);
+    // Animate progress bar
+    let progress = 0;
+    const steps = [
+      { at: 15, text: 'Verificando credenciales...', sub: '' },
+      { at: 40, text: 'Cargando módulos...', sub: '' },
+      { at: 65, text: 'Preparando datos...', sub: '' },
+      { at: 85, text: 'Configurando interfaz...', sub: '' },
+      { at: 100, text: '¡Listo!', sub: '' }
+    ];
+    let stepIndex = 0;
 
-    // After welcome animation, show main app
-    setTimeout(() => {
-      welcomeOverlay.classList.add('hiding');
+    const interval = setInterval(() => {
+      progress += 2;
+      if (progress > 100) progress = 100;
+      progressBar.style.width = progress + '%';
 
-      setTimeout(() => {
-        welcomeOverlay.classList.add('d-none');
-        sessionStorage.setItem('currentUser', JSON.stringify(currentUser));
-        showMainApp();
-      }, 600);
-    }, 3000);
+      if (stepIndex < steps.length && progress >= steps[stepIndex].at) {
+        welcomeText.textContent = steps[stepIndex].text;
+        stepIndex++;
+      }
+
+      if (progress >= 100) {
+        clearInterval(interval);
+        // Create confetti
+        createParticles(welcomeOverlay);
+        // Exit welcome
+        setTimeout(() => {
+          welcomeOverlay.classList.add('hiding');
+          setTimeout(() => {
+            welcomeOverlay.classList.add('d-none');
+            welcomeOverlay.classList.remove('hiding');
+            progressBar.style.width = '0%';
+            welcomeText.textContent = 'Iniciando sistema...';
+            sessionStorage.setItem('currentUser', JSON.stringify(currentUser));
+            showMainApp();
+          }, 600);
+        }, 400);
+      }
+    }, 40);
   }, 500);
 }
 
 function createParticles(container) {
-  const colors = ['#a78bfa', '#c4b5fd', '#8b5cf6', '#6d28d9', '#4ade80', '#fbbf24', '#f472b6'];
+  const colors = ['#4ade80', '#22c55e', '#a78bfa', '#c4b5fd', '#fbbf24', '#f472b6'];
+  const shapes = ['circle', 'square'];
 
-  for (let i = 0; i < 40; i++) {
+  for (let i = 0; i < 50; i++) {
     const particle = document.createElement('div');
+    const shape = shapes[Math.floor(Math.random() * shapes.length)];
+    const size = 4 + Math.random() * 10;
     particle.className = 'particle';
     particle.style.cssText = `
       left: ${Math.random() * 100}%;
       top: -20px;
-      width: ${6 + Math.random() * 8}px;
-      height: ${6 + Math.random() * 8}px;
+      width: ${size}px;
+      height: ${size}px;
       background: ${colors[Math.floor(Math.random() * colors.length)]};
-      animation: particleFall ${2 + Math.random() * 3}s linear ${Math.random() * 1}s forwards;
-      opacity: ${0.6 + Math.random() * 0.4};
+      border-radius: ${shape === 'circle' ? '50%' : '2px'};
+      animation: particleFall ${1.5 + Math.random() * 2.5}s linear ${Math.random() * 0.8}s forwards;
+      opacity: ${0.7 + Math.random() * 0.3};
     `;
     container.appendChild(particle);
-
-    // Remove particle after animation
-    setTimeout(() => particle.remove(), 5000);
+    setTimeout(() => particle.remove(), 4500);
   }
+}
+
+function showPendingOverlay() {
+  const overlay = document.createElement('div');
+  overlay.className = 'pending-overlay';
+  overlay.innerHTML = `
+    <div class="pending-content">
+      <div class="pending-icon">
+        <i class="bi bi-clock-history"></i>
+      </div>
+      <h2 class="pending-title">Cuenta pendiente de aprobación</h2>
+      <p class="pending-text">Tu cuenta ha sido creada exitosamente.</p>
+      <p class="pending-subtext">Un administrador debe activar tu cuenta para que puedas ingresar.</p>
+      <button class="login-btn" onclick="this.closest('.pending-overlay').remove()">
+        <i class="bi bi-check-lg me-2"></i>Entendido
+      </button>
+    </div>
+  `;
+  document.body.appendChild(overlay);
 }
 
 function showMainApp() {
   $('#loginScreen').classList.add('d-none');
   $('#welcomeOverlay').classList.add('d-none');
+  $('#welcomeOverlay').classList.remove('hiding');
   $('#mainApp').classList.remove('d-none');
   
   // Initialize main app
@@ -152,6 +200,137 @@ if (document.readyState === 'loading') {
 } else {
   initLogin();
 }
+
+/* ========== REGISTER ========== */
+
+$('#btnShowRegister')?.addEventListener('click', () => {
+  $('#formRegister').reset();
+  $$('#registerOverlay .login-input-group').forEach(ig => ig.classList.remove('error'));
+  $('#registerOverlay').classList.remove('d-none');
+});
+
+$('#btnCloseRegister')?.addEventListener('click', () => {
+  $('#registerOverlay').classList.add('hiding');
+  setTimeout(() => {
+    $('#registerOverlay').classList.add('d-none');
+    $('#registerOverlay').classList.remove('hiding');
+  }, 400);
+});
+
+/* ========== LOGOUT ========== */
+
+$('#btnLogout')?.addEventListener('click', () => {
+  confirmar({
+    titulo: '¿Cerrar sesión?',
+    mensaje: 'Se cerrará tu sesión actual.',
+    onOk: () => {
+      currentUser = null;
+      sessionStorage.removeItem('currentUser');
+      // Hide all overlays and app
+      $('#mainApp').classList.add('d-none');
+      $('#welcomeOverlay').classList.add('d-none');
+      $('#welcomeOverlay').classList.remove('hiding');
+      // Show login
+      const loginScreen = $('#loginScreen');
+      loginScreen.classList.remove('d-none', 'hiding');
+      // Reset login form
+      $('#loginUser').value = '';
+      $('#loginPass').value = '';
+      const loginBtn = $('#loginBtn');
+      loginBtn.disabled = false;
+      loginBtn.querySelector('.login-btn-text').classList.remove('d-none');
+      loginBtn.querySelector('.login-btn-loading').classList.add('d-none');
+      // Remove any pending overlays
+      $$('.pending-overlay').forEach(el => el.remove());
+      window.scrollTo({ top: 0 });
+    }
+  });
+});
+
+/* ========== CHANGE PASSWORD ========== */
+
+$('#btnChangePass')?.addEventListener('click', () => {
+  $('#formChangePass').reset();
+  ['#inpNewPass', '#inpConfirmPass'].forEach(s => $(s).classList.remove('is-invalid'));
+  bootstrap.Modal.getOrCreateInstance($('#modalChangePass')).show();
+});
+
+$('#btnSavePass')?.addEventListener('click', async () => {
+  const newPass = $('#inpNewPass').value;
+  const confirmPass = $('#inpConfirmPass').value;
+
+  ['#inpNewPass', '#inpConfirmPass'].forEach(s => $(s).classList.remove('is-invalid'));
+
+  let ok = true;
+  if (newPass.length < 6) { $('#inpNewPass').classList.add('is-invalid'); ok = false; }
+  if (newPass !== confirmPass) { $('#inpConfirmPass').classList.add('is-invalid'); ok = false; }
+  if (!ok) { toast('Revisa los campos marcados', 'warning'); return; }
+
+  const btn = $('#btnSavePass');
+  btn.disabled = true;
+  btn.querySelector('.spinner-border').classList.remove('d-none');
+
+  try {
+    await api(`/auth/usuarios/${currentUser.id}/contrasena`, {
+      method: 'PUT',
+      body: { contrasena: newPass }
+    });
+    toast('Contraseña actualizada correctamente');
+    bootstrap.Modal.getOrCreateInstance($('#modalChangePass')).hide();
+  } catch (err) {
+    toast(err.message, 'danger');
+  } finally {
+    btn.disabled = false;
+    btn.querySelector('.spinner-border').classList.add('d-none');
+  }
+});
+
+$('#formRegister')?.addEventListener('submit', async (e) => {
+  e.preventDefault();
+
+  const nombre = $('#regNombre').value.trim();
+  const usuario = $('#regUsuario').value.trim();
+  const contrasena = $('#regPass').value;
+  const inputGroups = $$('#registerOverlay .login-input-group');
+
+  inputGroups.forEach(ig => ig.classList.remove('error'));
+
+  if (!nombre || !usuario || contrasena.length < 6) {
+    if (!nombre) inputGroups[0].classList.add('error');
+    if (!usuario) inputGroups[1].classList.add('error');
+    if (contrasena.length < 6) inputGroups[2].classList.add('error');
+    return;
+  }
+
+  const btn = $('#registerBtn');
+  btn.disabled = true;
+  btn.querySelector('.login-btn-text').classList.add('d-none');
+  btn.querySelector('.login-btn-loading').classList.remove('d-none');
+
+  try {
+    const response = await api('/auth/register', {
+      method: 'POST',
+      body: { usuario, contrasena, nombreCompleto: nombre }
+    });
+
+    // Success - show pending message
+    $('#registerOverlay').classList.add('hiding');
+    setTimeout(() => {
+      $('#registerOverlay').classList.add('d-none');
+      $('#registerOverlay').classList.remove('hiding');
+      // Reset register form
+      $('#formRegister').reset();
+      // Show pending approval overlay
+      showPendingOverlay();
+    }, 400);
+  } catch (err) {
+    inputGroups.forEach(ig => ig.classList.add('error'));
+    toast(err.message, 'danger');
+    btn.disabled = false;
+    btn.querySelector('.login-btn-text').classList.remove('d-none');
+    btn.querySelector('.login-btn-loading').classList.add('d-none');
+  }
+});
 
 /* ========== MAIN APP ========== */
 
@@ -808,6 +987,14 @@ document.addEventListener('click', async e => {
       }
     });
 
+  } else if (action === 'activar-usuario') {
+    const u = state.usuarios.find(x => x.id === id);
+    if (!u) return;
+    state.usuarioAActivar = u;
+    $('#activarUsuarioNombre').textContent = `${u.nombre_completo} (${u.usuario})`;
+    $('#selActivarRol').value = u.rol || 'CONSULTA';
+    bootstrap.Modal.getOrCreateInstance($('#modalActivar')).show();
+
   } else if (action === 'toggle-usuario') {
     const activo = Number(btn.dataset.activo);
     const u = state.usuarios.find(x => x.id === id);
@@ -916,6 +1103,7 @@ $$('.reveal').forEach(el => io.observe(el));
 /* ---------- usuarios ---------- */
 
 state.usuarios = [];
+state.usuarioAActivar = null;
 
 async function cargarUsuarios() {
   state.usuarios = await api('/auth/usuarios');
@@ -937,9 +1125,13 @@ function renderUsuarios() {
   $('#tbodyUsuarios').innerHTML = lista.map((u, i) => {
     const isAdmin = u.rol === 'ADMIN';
     const esMismoUsuario = currentUser && currentUser.id === u.id;
+    const pendiente = !u.activo;
     return `
-      <tr style="--d:${Math.min(i * .04, .35)}s">
-        <td><span class="badge badge-code">${esc(u.usuario)}</span></td>
+      <tr style="--d:${Math.min(i * .04, .35)}s" class="${pendiente ? 'row-pending' : ''}">
+        <td>
+          <span class="badge badge-code">${esc(u.usuario)}</span>
+          ${pendiente ? '<span class="badge badge-warning ms-1">Pendiente</span>' : ''}
+        </td>
         <td><span class="prod-name">${esc(u.nombre_completo)}</span></td>
         <td class="text-center">
           <span class="badge ${isAdmin ? 'badge-entrega' : 'badge-devolucion'}">${isAdmin ? 'Admin' : 'Consulta'}</span>
@@ -950,9 +1142,15 @@ function renderUsuarios() {
         <td class="d-none d-md-table-cell"><span class="small text-muted-lila">${u.ultimo_acceso ? fmtFecha(u.ultimo_acceso) : 'Nunca'}</span></td>
         <td class="text-end text-nowrap">
           ${!esMismoUsuario ? `
-            <button class="btn-action" data-action="toggle-usuario" data-id="${u.id}" data-activo="${u.activo ? 0 : 1}" title="${u.activo ? 'Desactivar' : 'Activar'}">
-              <i class="bi bi-${u.activo ? 'pause-circle' : 'play-circle'}"></i>
-            </button>
+            ${pendiente ? `
+              <button class="btn-action" data-action="activar-usuario" data-id="${u.id}" data-nombre="${esc(u.nombre_completo)}" title="Activar usuario">
+                <i class="bi bi-play-circle"></i>
+              </button>
+            ` : `
+              <button class="btn-action" data-action="toggle-usuario" data-id="${u.id}" data-activo="0" title="Desactivar">
+                <i class="bi bi-pause-circle"></i>
+              </button>
+            `}
             <button class="btn-action danger" data-action="del-usuario" data-id="${u.id}" title="Eliminar">
               <i class="bi bi-trash3"></i>
             </button>
@@ -969,6 +1167,20 @@ function abrirModalUsuario() {
 }
 
 $('#btnNuevoUsuario').addEventListener('click', abrirModalUsuario);
+
+$('#btnActivarOk')?.addEventListener('click', async () => {
+  const u = state.usuarioAActivar;
+  if (!u) return;
+  const rol = $('#selActivarRol').value;
+  try {
+    await api(`/auth/usuarios/${u.id}/activar`, { method: 'PUT', body: { rol } });
+    toast(`Usuario ${u.nombre_completo} activado como ${rol}`);
+    bootstrap.Modal.getOrCreateInstance($('#modalActivar')).hide();
+    await cargarUsuarios();
+  } catch (err) {
+    toast(err.message, 'danger');
+  }
+});
 
 $('#btnGuardarUsuario').addEventListener('click', async () => {
   const nombre = $('#inpNombreUsuario').value.trim();

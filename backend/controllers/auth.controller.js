@@ -3,9 +3,10 @@ const bcrypt = require('bcrypt');
 
 exports.login = async (req, res) => {
   const usuario = String(req.body?.usuario ?? '').trim();
+  const contrasena = String(req.body?.contrasena ?? '');
 
-  if (!usuario) {
-    return res.status(400).json({ error: 'El usuario es obligatorio' });
+  if (!usuario || !contrasena) {
+    return res.status(400).json({ error: 'Usuario y contraseña son obligatorios' });
   }
 
   try {
@@ -15,7 +16,12 @@ exports.login = async (req, res) => {
     );
 
     if (!user) {
-      return res.status(401).json({ error: 'Usuario no encontrado' });
+      return res.status(401).json({ error: 'Credenciales inválidas' });
+    }
+
+    const passwordMatch = await bcrypt.compare(contrasena, user.contrasena);
+    if (!passwordMatch) {
+      return res.status(401).json({ error: 'Credenciales inválidas' });
     }
 
     // Update last access
@@ -31,6 +37,76 @@ exports.login = async (req, res) => {
   } catch (err) {
     console.error('auth.login:', err.message);
     res.status(500).json({ error: 'Error al autenticar' });
+  }
+};
+
+exports.registrar = async (req, res) => {
+  const usuario = String(req.body?.usuario ?? '').trim();
+  const contrasena = String(req.body?.contrasena ?? '');
+  const nombreCompleto = String(req.body?.nombreCompleto ?? '').trim();
+
+  if (!usuario || !contrasena || !nombreCompleto) {
+    return res.status(400).json({ error: 'Usuario, contraseña y nombre son obligatorios' });
+  }
+
+  if (contrasena.length < 6) {
+    return res.status(400).json({ error: 'La contraseña debe tener al menos 6 caracteres' });
+  }
+
+  try {
+    const [[existing]] = await db.execute(
+      'SELECT id FROM usuarios WHERE usuario = ? LIMIT 1',
+      [usuario]
+    );
+
+    if (existing) {
+      return res.status(409).json({ error: 'El usuario ya existe' });
+    }
+
+    const hashedPassword = await bcrypt.hash(contrasena, 10);
+
+    // Register as CONSULTA role, inactive until admin activates
+    const [result] = await db.execute(
+      'INSERT INTO usuarios (usuario, contrasena, nombre_completo, rol, activo) VALUES (?, ?, ?, ?, 0)',
+      [usuario, hashedPassword, nombreCompleto, 'CONSULTA']
+    );
+
+    const [[nuevo]] = await db.execute(
+      'SELECT id, usuario, nombre_completo, rol, activo, creado_en FROM usuarios WHERE id = ?',
+      [result.insertId]
+    );
+
+    // Update last access
+    await db.execute('UPDATE usuarios SET ultimo_acceso = NOW() WHERE id = ?', [result.insertId]);
+
+    res.status(201).json({ mensaje: 'Cuenta creada correctamente', usuario: nuevo });
+  } catch (err) {
+    console.error('auth.registrar:', err.message);
+    res.status(500).json({ error: 'No se pudo crear la cuenta' });
+  }
+};
+
+exports.cambiarContrasena = async (req, res) => {
+  const userId = Number(req.params.id);
+  const nuevaContrasena = String(req.body?.contrasena ?? '');
+
+  if (!Number.isInteger(userId) || userId <= 0) return res.status(400).json({ error: 'Identificador inválido' });
+
+  if (nuevaContrasena.length < 6) {
+    return res.status(400).json({ error: 'La contraseña debe tener al menos 6 caracteres' });
+  }
+
+  try {
+    const [[user]] = await db.execute('SELECT id FROM usuarios WHERE id = ? LIMIT 1', [userId]);
+    if (!user) return res.status(404).json({ error: 'Usuario no encontrado' });
+
+    const hashedPassword = await bcrypt.hash(nuevaContrasena, 10);
+    await db.execute('UPDATE usuarios SET contrasena = ? WHERE id = ?', [hashedPassword, userId]);
+
+    res.json({ mensaje: 'Contraseña actualizada correctamente' });
+  } catch (err) {
+    console.error('auth.cambiarContrasena:', err.message);
+    res.status(500).json({ error: 'No se pudo cambiar la contraseña' });
   }
 };
 
@@ -114,6 +190,27 @@ exports.eliminarUsuario = async (req, res) => {
   } catch (err) {
     console.error('auth.eliminarUsuario:', err.message);
     res.status(500).json({ error: 'No se pudo eliminar el usuario' });
+  }
+};
+
+exports.activarUsuario = async (req, res) => {
+  const id = Number(req.params.id);
+  if (!Number.isInteger(id) || id <= 0) return res.status(400).json({ error: 'Identificador inválido' });
+
+  const rol = String(req.body?.rol ?? 'CONSULTA').toUpperCase();
+  if (!['ADMIN', 'CONSULTA'].includes(rol)) {
+    return res.status(400).json({ error: 'Rol inválido' });
+  }
+
+  try {
+    const [[user]] = await db.execute('SELECT id FROM usuarios WHERE id = ? LIMIT 1', [id]);
+    if (!user) return res.status(404).json({ error: 'Usuario no encontrado' });
+
+    await db.execute('UPDATE usuarios SET activo = 1, rol = ? WHERE id = ?', [rol, id]);
+    res.json({ mensaje: 'Usuario activado correctamente' });
+  } catch (err) {
+    console.error('auth.activarUsuario:', err.message);
+    res.status(500).json({ error: 'No se pudo activar el usuario' });
   }
 };
 
