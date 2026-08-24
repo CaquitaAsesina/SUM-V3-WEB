@@ -223,29 +223,76 @@ $('#btnLogout')?.addEventListener('click', () => {
   confirmar({
     titulo: '¿Cerrar sesión?',
     mensaje: 'Se cerrará tu sesión actual.',
-    onOk: () => {
-      currentUser = null;
-      sessionStorage.removeItem('currentUser');
-      // Hide all overlays and app
-      $('#mainApp').classList.add('d-none');
-      $('#welcomeOverlay').classList.add('d-none');
-      $('#welcomeOverlay').classList.remove('hiding');
-      // Show login
-      const loginScreen = $('#loginScreen');
-      loginScreen.classList.remove('d-none', 'hiding');
-      // Reset login form
-      $('#loginUser').value = '';
-      $('#loginPass').value = '';
-      const loginBtn = $('#loginBtn');
-      loginBtn.disabled = false;
-      loginBtn.querySelector('.login-btn-text').classList.remove('d-none');
-      loginBtn.querySelector('.login-btn-loading').classList.add('d-none');
-      // Remove any pending overlays
-      $$('.pending-overlay').forEach(el => el.remove());
-      window.scrollTo({ top: 0 });
-    }
+    okText: 'Cerrar sesión',
+    icon: 'bi-box-arrow-left',
+    iconBg: 'linear-gradient(135deg,#ede9fe,#ddd6fe)',
+    iconColor: '#7c3aed',
+    btnClass: 'btn-gradient',
+    onOk: () => showLogoutAnimation()
   });
 });
+
+function showLogoutAnimation() {
+  const logoutOverlay = $('#logoutOverlay');
+  const progressBar = $('#logoutProgressBar');
+  const logoutText = $('#logoutText');
+  const logoutSubtext = $('#logoutSubtext');
+
+  // Hide main app
+  $('#mainApp').classList.add('d-none');
+  logoutOverlay.classList.remove('d-none');
+
+  let progress = 0;
+  const steps = [
+    { at: 20, text: 'Guardando cambios...', sub: '' },
+    { at: 50, text: 'Cerrando módulos...', sub: '' },
+    { at: 75, text: 'Limpiando sesión...', sub: '' },
+    { at: 95, text: '¡Hasta pronto!', sub: '' },
+    { at: 100, text: 'Sesión cerrada', sub: '' }
+  ];
+  let stepIndex = 0;
+
+  const interval = setInterval(() => {
+    progress += 3;
+    if (progress > 100) progress = 100;
+    progressBar.style.width = progress + '%';
+
+    if (stepIndex < steps.length && progress >= steps[stepIndex].at) {
+      logoutText.textContent = steps[stepIndex].text;
+      stepIndex++;
+    }
+
+    if (progress >= 100) {
+      clearInterval(interval);
+      setTimeout(() => {
+        logoutOverlay.classList.add('hiding');
+        setTimeout(() => {
+          // Clean up
+          logoutOverlay.classList.add('d-none');
+          logoutOverlay.classList.remove('hiding');
+          progressBar.style.width = '0%';
+          logoutText.textContent = 'Cerrando sesión...';
+          currentUser = null;
+          sessionStorage.removeItem('currentUser');
+          // Remove pending overlays
+          $$('.pending-overlay').forEach(el => el.remove());
+          // Reset and show login
+          $('#welcomeOverlay').classList.add('d-none');
+          $('#welcomeOverlay').classList.remove('hiding');
+          const loginScreen = $('#loginScreen');
+          loginScreen.classList.remove('d-none', 'hiding');
+          $('#loginUser').value = '';
+          $('#loginPass').value = '';
+          const loginBtn = $('#loginBtn');
+          loginBtn.disabled = false;
+          loginBtn.querySelector('.login-btn-text').classList.remove('d-none');
+          loginBtn.querySelector('.login-btn-loading').classList.add('d-none');
+          window.scrollTo({ top: 0 });
+        }, 600);
+      }, 300);
+    }
+  }, 35);
+}
 
 /* ========== CHANGE PASSWORD ========== */
 
@@ -536,9 +583,15 @@ $('#btnGuardarProducto').addEventListener('click', async () => {
   }
 });
 
-function confirmar({ titulo, mensaje, onOk }) {
+function confirmar({ titulo, mensaje, onOk, okText = 'Sí, eliminar', icon = 'bi-trash3', iconBg = 'linear-gradient(135deg,#fee2e2,#fecaca)', iconColor = '#dc2626', btnClass = 'btn-danger-app' }) {
   $('#confirmTitulo').textContent = titulo;
   $('#confirmMensaje').textContent = mensaje;
+  $('#confirmOkText').textContent = okText;
+  $('#confirmIcon').innerHTML = `<i class="bi ${icon}"></i>`;
+  $('#confirmIcon').style.background = iconBg;
+  $('#confirmIcon').style.color = iconColor;
+  const okBtn = $('#btnConfirmOk');
+  okBtn.className = `btn flex-fill ${btnClass}`;
   state.confirmAction = onOk;
   bootstrap.Modal.getOrCreateInstance($('#modalConfirm')).show();
 }

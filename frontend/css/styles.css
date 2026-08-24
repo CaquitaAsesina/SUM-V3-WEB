@@ -1612,6 +1612,30 @@ body {
   width: 100%;
 }
 
+/* Logout overlay */
+.logout-fill {
+  stroke: #7c3aed;
+  stroke-dasharray: 340;
+  stroke-dashoffset: 340;
+}
+
+.logout-bar {
+  background: linear-gradient(90deg, #7c3aed, #a78bfa);
+}
+
+.logout-icon {
+  color: #7c3aed;
+}
+
+/* Confirm modal dynamic icon */
+.confirm-icon {
+  width: 72px; height: 72px;
+  border-radius: 20px;
+  display: grid; place-items: center;
+  font-size: 1.8rem;
+  transition: background .3s, color .3s;
+}
+
 @media (max-width: 768px) {
   .login-container {
     flex-direction: column;
