@@ -200,7 +200,7 @@
   </div>
 
   <!-- Main App (hidden initially) -->
-  <div class="d-none" id="mainApp">
+  <div class="d-none" id="mainApp" role="application" aria-label="Sistema de Suministros">
   <div class="bg-decor" aria-hidden="true">
     <span class="blob blob-1"></span>
     <span class="blob blob-2"></span>
@@ -287,7 +287,7 @@
     <span class="ms-auto chip-clock-sm"><span class="pulse-dot"></span></span>
   </header>
 
-  <main class="main-content">
+  <main class="main-content" role="main" id="mainContent">
 
     <section class="view active" id="view-registro">
 
@@ -606,6 +606,26 @@
       <span class="d-none d-sm-inline">Contacto: 902044601</span>
     </footer>
   </main>
+
+  <!-- Mobile Bottom Navigation -->
+  <nav class="mobile-bottom-nav d-lg-none" id="mobileBottomNav" aria-label="Navegación principal móvil">
+    <a class="mbn-item active" data-view="registro" href="#" role="button" aria-label="Registros">
+      <i class="bi bi-journal-text"></i>
+      <span>Registros</span>
+    </a>
+    <a class="mbn-item" data-view="productos" href="#" role="button" aria-label="Productos">
+      <i class="bi bi-box-seam"></i>
+      <span>Productos</span>
+    </a>
+    <a class="mbn-item" data-view="dashboard" href="#" role="button" aria-label="Dashboard">
+      <i class="bi bi-graph-up-arrow"></i>
+      <span>Dashboard</span>
+    </a>
+    <a class="mbn-item" data-view="usuarios" href="#" role="button" aria-label="Usuarios">
+      <i class="bi bi-people"></i>
+      <span>Usuarios</span>
+    </a>
+  </nav>
 
   <div class="modal fade" id="modalNuevoRegistro" tabindex="-1" aria-hidden="true">
     <div class="modal-dialog modal-dialog-centered dialog-registro">
@@ -935,7 +955,7 @@
     </div>
   </div>
 
-  <div class="toast-container" id="toasts"></div>
+  <div class="toast-container" id="toasts" role="alert" aria-live="polite"></div>
   </div><!-- /mainApp -->
 
   <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>

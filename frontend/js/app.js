@@ -442,7 +442,11 @@ function validarPlaca(v) {
 /* ---------- navegación ---------- */
 
 function navigate(view) {
+  // Sync sidebar nav
   $$('.nav-link-module').forEach(a => a.classList.toggle('active', a.dataset.view === view));
+  // Sync mobile bottom nav
+  $$('#mobileBottomNav .mbn-item').forEach(item => item.classList.toggle('active', item.dataset.view === view));
+  // Switch views
   $$('.view').forEach(v => v.classList.toggle('active', v.id === `view-${view}`));
   window.scrollTo({ top: 0, behavior: 'smooth' });
   if (view === 'dashboard') cargarDashboard();
@@ -450,6 +454,14 @@ function navigate(view) {
 }
 
 $$('.nav-link-module').forEach(a => a.addEventListener('click', () => navigate(a.dataset.view)));
+
+// Mobile bottom nav
+$$('#mobileBottomNav .mbn-item').forEach(item => {
+  item.addEventListener('click', (e) => {
+    e.preventDefault();
+    navigate(item.dataset.view);
+  });
+});
 
 /* ---------- reloj ---------- */
 
@@ -504,6 +516,7 @@ function renderProductos() {
       : 'Prueba con otro término de búsqueda.';
 
   if (!vacio) {
+    // Desktop table
     $('#tbodyProductos').innerHTML = lista.map((p, i) => `
       <tr style="--d:${Math.min(i * .04, .35)}s">
         <td><span class="badge badge-code">${esc(p.codigo)}</span></td>
@@ -522,6 +535,15 @@ function renderProductos() {
           <button class="btn-action danger" data-action="del-producto" data-id="${p.id}" title="Eliminar"><i class="bi bi-trash3"></i></button>
         </td>
       </tr>`).join('');
+    // Mobile cards
+    const existingMobile = $('#wrapTablaProductos').previousElementSibling;
+    if (existingMobile && existingMobile.classList.contains('productos-mobile-cards')) existingMobile.remove();
+    const mobileHTML = renderProductosMobile(lista);
+    if (mobileHTML) {
+      const wrapper = document.createElement('div');
+      wrapper.innerHTML = mobileHTML;
+      $('#wrapTablaProductos').parentNode.insertBefore(wrapper.firstElementChild, $('#wrapTablaProductos'));
+    }
   }
 }
 
@@ -650,6 +672,7 @@ function renderRegistros() {
     : 'Ningún registro coincide con el filtro aplicado.';
 
   if (!mostrarVacio) {
+    // Desktop table
     $('#tbodyRegistros').innerHTML = lista.map((r, i) => `
       <tr style="--d:${Math.min(i * .035, .4)}s">
         <td><span class="badge badge-code">${esc(r.codigo)}</span></td>
@@ -669,6 +692,15 @@ function renderRegistros() {
           <button class="btn-action danger" data-action="del-registro" data-id="${r.id}" title="Eliminar"><i class="bi bi-trash3"></i></button>
         </td>
       </tr>`).join('');
+    // Mobile cards - inject before the table
+    const existingMobile = $('#wrapTablaRegistros').previousElementSibling;
+    if (existingMobile && existingMobile.classList.contains('registros-mobile-cards')) existingMobile.remove();
+    const mobileHTML = renderRegistrosMobile(lista);
+    if (mobileHTML) {
+      const wrapper = document.createElement('div');
+      wrapper.innerHTML = mobileHTML;
+      $('#wrapTablaRegistros').parentNode.insertBefore(wrapper.firstElementChild, $('#wrapTablaRegistros'));
+    }
   }
 }
 
@@ -1280,6 +1312,7 @@ function renderUsuarios() {
 
   if (!hay) return;
 
+  // Desktop table
   $('#tbodyUsuarios').innerHTML = lista.map((u, i) => {
     const isAdmin = u.rol === 'ADMIN';
     const esMismoUsuario = currentUser && currentUser.id === u.id;
@@ -1316,6 +1349,15 @@ function renderUsuarios() {
         </td>
       </tr>`;
   }).join('');
+  // Mobile cards
+  const existingMobile = $('#wrapTablaUsuarios').previousElementSibling;
+  if (existingMobile && existingMobile.classList.contains('usuarios-mobile-cards')) existingMobile.remove();
+  const mobileHTML = renderUsuariosMobile(lista);
+  if (mobileHTML) {
+    const wrapper = document.createElement('div');
+    wrapper.innerHTML = mobileHTML;
+    $('#wrapTablaUsuarios').parentNode.insertBefore(wrapper.firstElementChild, $('#wrapTablaUsuarios'));
+  }
 }
 
 function abrirModalUsuario() {
@@ -1374,6 +1416,101 @@ $('#btnGuardarUsuario').addEventListener('click', async () => {
     btn.querySelector('.spinner-border').classList.add('d-none');
   }
 });
+
+/* ---------- responsive utilities ---------- */
+
+function isMobile() {
+  return window.innerWidth < 768;
+}
+
+function isTouch() {
+  return 'ontouchstart' in window || navigator.maxTouchPoints > 0;
+}
+
+// Mobile card rendering for registros
+function renderRegistrosMobile(lista) {
+  if (!lista.length) return '';
+  return `<div class="d-md-none registros-mobile-cards">${lista.map((r, i) => `
+    <div class="registro-mobile-card ${r.tipo === 'DEVOLUCION' ? 'tipo-dev' : 'tipo-ent'}" style="animation-delay:${Math.min(i * .05, .4)}s">
+      <div class="rmc-header">
+        <div class="rmc-icon ${r.tipo === 'ENTREGA' ? 'ent' : 'dev'}">
+          <i class="bi ${r.tipo === 'ENTREGA' ? 'bi-truck' : 'bi-arrow-return-left'}"></i>
+        </div>
+        <div class="rmc-title">
+          <span class="rmc-producto">${esc(r.producto_nombre)}</span>
+          <span class="rmc-codigo"><i class="bi bi-hash"></i>${esc(r.codigo)}</span>
+        </div>
+        <span class="badge ${r.tipo === 'ENTREGA' ? 'badge-entrega' : 'badge-devolucion'}">${r.tipo === 'ENTREGA' ? 'Entrega' : 'Devolución'}</span>
+      </div>
+      <div class="rmc-body">
+        <div class="rmc-field"><label>Código</label><span>${esc(r.producto_codigo)}</span></div>
+        <div class="rmc-field"><label>Cantidad</label><span class="cantidad-chip ${r.tipo === 'ENTREGA' ? 'pos' : 'neg'}">${r.tipo === 'ENTREGA' ? '+' : '−'}${r.cantidad} ${esc(r.unidad)}</span></div>
+        <div class="rmc-field"><label>Placa</label><span>${esc(r.placa)}</span></div>
+        <div class="rmc-field"><label>N° Guía</label><span>${esc(r.numero_guia)}</span></div>
+        <div class="rmc-field"><label>Fecha</label><span>${fmtFecha(r.fecha_hora)}</span></div>
+      </div>
+      <div class="rmc-actions">
+        <button class="btn-action" data-action="edit-registro" data-id="${r.id}" title="Editar"><i class="bi bi-pencil-square"></i></button>
+        <button class="btn-action danger" data-action="del-registro" data-id="${r.id}" title="Eliminar"><i class="bi bi-trash3"></i></button>
+      </div>
+    </div>`).join('')}</div>`;
+}
+
+// Mobile card rendering for productos
+function renderProductosMobile(lista) {
+  if (!lista.length) return '';
+  return `<div class="d-md-none productos-mobile-cards">${lista.map((p, i) => `
+    <div class="producto-mobile-card" style="animation-delay:${Math.min(i * .05, .4)}s">
+      <div class="pmc-header">
+        <div class="pmc-icon"><i class="bi bi-box-seam"></i></div>
+        <div class="pmc-info">
+          <span class="pmc-name">${esc(p.nombre)}</span>
+          <span class="pmc-code"><i class="bi bi-hash"></i>${esc(p.codigo)}</span>
+        </div>
+        <span class="badge ${p.activo ? 'badge-activo' : 'badge-inactivo'}">${p.activo ? 'Activo' : 'Inactivo'}</span>
+      </div>
+      <div class="pmc-body">
+        <div class="pmc-field"><label>Descripción</label><span>${esc(p.descripcion || '—')}</span></div>
+        <div class="pmc-field"><label>Unidad</label><span><span class="badge badge-placa">${esc(p.unidad)}</span></span></div>
+        <div class="pmc-field"><label>Movimientos</label><span class="badge badge-count">${p.total_registros}</span></div>
+      </div>
+      <div class="pmc-actions">
+        <button class="btn-action" data-action="edit-producto" data-id="${p.id}" title="Editar"><i class="bi bi-pencil-square"></i></button>
+        <button class="btn-action danger" data-action="del-producto" data-id="${p.id}" title="Eliminar"><i class="bi bi-trash3"></i></button>
+      </div>
+    </div>`).join('')}</div>`;
+}
+
+// Mobile card rendering for usuarios
+function renderUsuariosMobile(lista) {
+  if (!lista.length) return '';
+  return `<div class="d-md-none usuarios-mobile-cards">${lista.map((u, i) => {
+    const isAdmin = u.rol === 'ADMIN';
+    const esMismoUsuario = currentUser && currentUser.id === u.id;
+    const pendiente = !u.activo;
+    return `
+    <div class="usuario-mobile-card ${pendiente ? 'card-pending' : ''}" style="animation-delay:${Math.min(i * .05, .4)}s">
+      <div class="umc-header">
+        <div class="umc-icon ${isAdmin ? 'admin' : 'consulta'}"><i class="bi bi-person"></i></div>
+        <div class="umc-info">
+          <span class="umc-name">${esc(u.nombre_completo)}</span>
+          <span class="umc-usuario">@${esc(u.usuario)} ${pendiente ? '<span class="badge badge-warning ms-1">Pendiente</span>' : ''}</span>
+        </div>
+        <span class="badge ${isAdmin ? 'badge-entrega' : 'badge-devolucion'}">${isAdmin ? 'Admin' : 'Consulta'}</span>
+      </div>
+      <div class="umc-body">
+        <div class="umc-field"><label>Estado</label><span class="badge ${u.activo ? 'badge-activo' : 'badge-inactivo'}">${u.activo ? 'Activo' : 'Inactivo'}</span></div>
+        <div class="umc-field"><label>Último acceso</label><span>${u.ultimo_acceso ? fmtFecha(u.ultimo_acceso) : 'Nunca'}</span></div>
+      </div>
+      <div class="umc-actions">
+        ${!esMismoUsuario ? `
+          ${pendiente ? `<button class="btn-action" data-action="activar-usuario" data-id="${u.id}" title="Activar"><i class="bi bi-play-circle"></i></button>` : `<button class="btn-action" data-action="toggle-usuario" data-id="${u.id}" data-activo="0" title="Desactivar"><i class="bi bi-pause-circle"></i></button>`}
+          <button class="btn-action danger" data-action="del-usuario" data-id="${u.id}" title="Eliminar"><i class="bi bi-trash3"></i></button>
+        ` : '<span class="small text-muted-lila"><i class="bi bi-person-check me-1"></i>Tú</span>'}
+      </div>
+    </div>`;
+  }).join('')}</div>`;
+}
 
 /* ---------- init ---------- */
 
