@@ -4,8 +4,13 @@ exports.listar = async (_req, res) => {
   try {
     const [rows] = await db.query(`
       SELECT p.*,
-             (SELECT COUNT(*) FROM registros r WHERE r.producto_id = p.id) AS total_registros
+             COALESCE(SUM(IF(r.tipo='ENTREGA', r.cantidad, 0)), 0) AS entregas,
+             COALESCE(SUM(IF(r.tipo='DEVOLUCION', r.cantidad, 0)), 0) AS devoluciones,
+             COALESCE(SUM(IF(r.tipo='ENTREGA', r.cantidad, IF(r.tipo='DEVOLUCION', -r.cantidad, 0))), 0) AS stock,
+             COUNT(r.id) AS total_registros
         FROM productos p
+        LEFT JOIN registros r ON r.producto_id = p.id
+       GROUP BY p.id
        ORDER BY p.nombre ASC`);
     res.json(rows);
   } catch (err) {

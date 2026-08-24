@@ -848,9 +848,28 @@ const hintsTipo = {
   ENTREGA: '<i class="bi bi-info-circle"></i> La entrega <b>suma</b> stock al producto.',
   DEVOLUCION: '<i class="bi bi-info-circle"></i> La devolución <b>resta</b> stock al producto.'
 };
+
+function actualizarHintDevolucion() {
+  const tipo = $('input[name="tipo"]:checked')?.value;
+  if (tipo !== 'DEVOLUCION') return;
+  const selProd = $('#selProducto');
+  const productoId = parseInt(selProd.value, 10);
+  const hint = $('#hintTipo');
+  if (productoId) {
+    const producto = state.productos.find(p => p.id === productoId);
+    const stock = Number(producto?.stock || 0);
+    hint.innerHTML = stock > 0
+      ? `<i class="bi bi-exclamation-triangle text-warning"></i> Devolución — Stock disponible: <b>${stock}</b> unidades`
+      : `<i class="bi bi-x-circle text-danger"></i> Sin stock — No se puede devolver este producto`;
+    hint.style.color = stock <= 0 ? '#dc2626' : '';
+  }
+}
+
 $$('input[name="tipo"]').forEach(r => r.addEventListener('change', () => {
-  $('#hintTipo').innerHTML = hintsTipo[r.value];
+  actualizarHintDevolucion();
 }));
+
+$('#selProducto').addEventListener('change', actualizarHintDevolucion);
 
 function abrirRegistroNuevo() {
   ['#selProducto', '#inpCantidad', '#inpPlaca', '#inpGuia'].forEach(s => $(s).classList.remove('is-invalid'));
@@ -892,6 +911,16 @@ $('#formRegistro').addEventListener('submit', async e => {
   inpGuia.classList.remove('is-invalid');
   if (!/^\d{6,30}$/.test(guia)) { inpGuia.classList.add('is-invalid'); ok = false; }
 
+  // Validar stock para devoluciones
+  if (tipo === 'DEVOLUCION' && ok && productoId) {
+    const producto = state.productos.find(p => p.id === productoId);
+    if (producto && cantidad > Number(producto.stock || 0)) {
+      selProducto.classList.add('is-invalid');
+      toast(`No puedes devolver ${cantidad} unidades. Solo hay ${Number(producto.stock)} disponibles.`, 'danger');
+      return;
+    }
+  }
+
   if (!ok) { toast('Revisa los campos marcados en rojo', 'warning'); return; }
 
   const btn = $('#btnGuardarRegistro');
@@ -917,7 +946,7 @@ $('#formRegistro').addEventListener('submit', async e => {
     actualizarPreviewCodigo();
     bootstrap.Modal.getOrCreateInstance($('#modalNuevoRegistro')).hide();
     await cargarRegistros();
-    poblarSelects();
+    await cargarProductos();
   } catch (err) {
     toast(err.message, 'danger');
   } finally {
@@ -955,6 +984,25 @@ $('#btnGuardarRegistroEdit').addEventListener('click', async () => {
   const editGuia = $('#editGuia').value.replace(/[\s.-]/g, '');
   if (!/^\d{6,30}$/.test(editGuia)) { $('#editGuia').classList.add('is-invalid'); ok = false; }
 
+  // Validar stock para devoluciones (excluir el registro actual)
+  const editTipo = $('#editTipo').value;
+  if (editTipo === 'DEVOLUCION' && ok && productoId) {
+    const producto = state.productos.find(p => p.id === productoId);
+    let stockDisp = Number(producto?.stock || 0);
+    // Si el registro actual era ENTREGA, sumar su cantidad de vuelta (porque ahora se resta)
+    if (r.tipo === 'ENTREGA' && r.producto_id === productoId) {
+      stockDisp += Number(r.cantidad);
+    }
+    // Si el registro actual era DEVOLUCION, restar su cantidad (porque ya se restó)
+    if (r.tipo === 'DEVOLUCION' && r.producto_id === productoId) {
+      stockDisp -= Number(r.cantidad);
+    }
+    if (cantidad > stockDisp) {
+      toast(`No puedes devolver ${cantidad} unidades. Solo hay ${stockDisp} disponibles.`, 'danger');
+      return;
+    }
+  }
+
   if (!ok) { toast('Revisa los campos marcados en rojo', 'warning'); return; }
 
   const btn = $('#btnGuardarRegistroEdit');
@@ -974,6 +1022,7 @@ $('#btnGuardarRegistroEdit').addEventListener('click', async () => {
     toast(`Registro ${r.codigo} actualizado`);
     bootstrap.Modal.getOrCreateInstance($('#modalRegistroEdit')).hide();
     await cargarRegistros();
+    await cargarProductos();
   } catch (err) {
     toast(err.message, 'danger');
   } finally {
@@ -1024,6 +1073,7 @@ document.addEventListener('click', async e => {
         await api(`/registros/${id}`, { method: 'DELETE' });
         toast('Registro eliminado correctamente');
         await cargarRegistros();
+        await cargarProductos();
       }
     });
 
@@ -1121,6 +1171,61 @@ async function cargarDashboard() {
       requestAnimationFrame(() => requestAnimationFrame(() => {
         $$('#listaStock .stock-bar').forEach(b => { b.style.width = `${b.dataset.w}%`; });
       }));
+    }
+
+    // Render product detail cards
+    const productCardsEl = $('#productCards');
+    const emptyProductCards = $('#emptyProductCards');
+    if (productos.length === 0) {
+      productCardsEl.innerHTML = '';
+      emptyProductCards.classList.remove('d-none');
+    } else {
+      emptyProductCards.classList.add('d-none');
+      productCardsEl.innerHTML = productos.map((p, i) => {
+        const entregas = Number(p.entregas) || 0;
+        const devoluciones = Number(p.devoluciones) || 0;
+        const stock = Number(p.stock) || 0;
+        const maxVal = Math.max(entregas, devoluciones, 1);
+        const entPct = Math.round((entregas / maxVal) * 100);
+        const devPct = Math.round((devoluciones / maxVal) * 100);
+        const stockPct = Math.round((Math.abs(stock) / Math.max(entregas + devoluciones, 1)) * 100);
+        return `
+          <div class="col-12 col-md-6" style="animation-delay:${Math.min(i * .08, .5)}s">
+            <div class="product-card">
+              <div class="product-card-header">
+                <div class="product-card-icon ent"><i class="bi bi-truck"></i></div>
+                <div class="product-card-name">${esc(p.nombre)}</div>
+                <span class="product-card-badge ent">${esc(p.codigo)}</span>
+              </div>
+              <div class="product-card-body">
+                <div class="product-card-grid">
+                  <div class="product-card-item">
+                    <label>Entregas</label>
+                    <span class="pos">+${entregas.toLocaleString('es-PE')} ${esc(p.unidad)}</span>
+                  </div>
+                  <div class="product-card-item">
+                    <label>Devoluciones</label>
+                    <span class="neg">−${devoluciones.toLocaleString('es-PE')} ${esc(p.unidad)}</span>
+                  </div>
+                  <div class="product-card-item">
+                    <label>Stock actual</label>
+                    <span>${stock.toLocaleString('es-PE')} ${esc(p.unidad)}</span>
+                  </div>
+                  <div class="product-card-item">
+                    <label>Movimientos</label>
+                    <span>${p.movimientos} registro${p.movimientos !== 1 ? 's' : ''}</span>
+                  </div>
+                </div>
+                <div class="product-card-bar">
+                  <div class="product-card-bar-fill ent" style="width: ${entPct}%"></div>
+                </div>
+                <div class="product-card-bar mt-2">
+                  <div class="product-card-bar-fill dev" style="width: ${devPct}%"></div>
+                </div>
+              </div>
+            </div>
+          </div>`;
+      }).join('');
     }
   } catch (err) {
     toast(err.message, 'danger');

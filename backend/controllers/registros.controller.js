@@ -33,7 +33,7 @@ exports.listar = async (_req, res) => {
   }
 };
 
-async function validarDatos(conn, body) {
+async function validarDatos(conn, body, excludeId = null) {
   const tipo = body?.tipo;
   if (!['ENTREGA', 'DEVOLUCION'].includes(tipo)) {
     return { error: 'El tipo de movimiento debe ser Entrega o Devolución' };
@@ -51,6 +51,24 @@ async function validarDatos(conn, body) {
   const cantidad = Number(body?.cantidad);
   if (!Number.isInteger(cantidad) || cantidad <= 0 || cantidad > 1000000) {
     return { error: 'La cantidad debe ser un número entero mayor a 0' };
+  }
+
+  // Validar stock suficiente para devoluciones
+  if (tipo === 'DEVOLUCION') {
+    let whereExclude = '';
+    const params = [productoId];
+    if (excludeId) {
+      whereExclude = 'AND id != ?';
+      params.push(excludeId);
+    }
+    const [[{ stock }]] = await conn.execute(
+      `SELECT COALESCE(SUM(IF(tipo='ENTREGA', cantidad, IF(tipo='DEVOLUCION', -cantidad, 0))), 0) AS stock
+         FROM registros WHERE producto_id = ? ${whereExclude}`,
+      params
+    );
+    if (cantidad > stock) {
+      return { error: `No puedes devolver ${cantidad} unidades. Solo hay ${stock} unidades disponibles de este producto.` };
+    }
   }
 
   const placa = normalizarPlaca(body?.placa);
@@ -113,7 +131,7 @@ exports.actualizar = async (req, res) => {
     const [[existe]] = await conn.execute('SELECT id FROM registros WHERE id = ? LIMIT 1', [id]);
     if (!existe) return res.status(404).json({ error: 'Registro no encontrado' });
 
-    const datos = await validarDatos(conn, req.body);
+    const datos = await validarDatos(conn, req.body, id);
     if (datos.error) return res.status(400).json({ error: datos.error });
 
     await conn.beginTransaction();
