@@ -1202,40 +1202,293 @@ document.addEventListener('click', async e => {
   }
 });
 
-/* ---------- dashboard ---------- */
+/* ================================================================
+   DASHBOARD DE PRODUCCIÓN — Chart.js
+   ================================================================ */
 
+/* ── Referencias persistentes a las instancias Chart ──────────── */
+let _chartTendencia = null;
+let _chartDonut     = null;
+let _chartTop       = null;
+let _chartRadar     = null;
+
+/* ── Paleta consistente ───────────────────────────────────────── */
+const C = {
+  purple:  '#7c3aed',
+  purpleL: 'rgba(124,58,237,.18)',
+  pink:    '#f472b6',
+  pinkL:   'rgba(244,114,182,.18)',
+  green:   '#10b981',
+  greenL:  'rgba(16,185,129,.18)',
+  red:     '#ef4444',
+  redL:    'rgba(239,68,68,.18)',
+  amber:   '#f59e0b',
+  amberL:  'rgba(245,158,11,.18)',
+  blue:    '#3b82f6',
+  blueL:   'rgba(59,130,246,.18)',
+  gray100: '#f3f4f6',
+  gray300: '#d1d5db',
+  gray500: '#6b7280',
+  ink:     '#241b3a',
+};
+
+/* ── Chart.js defaults globales ───────────────────────────────── */
+if (window.Chart) {
+  Chart.defaults.font.family = "'Inter', -apple-system, sans-serif";
+  Chart.defaults.font.size = 12;
+  Chart.defaults.color = C.gray500;
+  Chart.defaults.plugins.legend.display = false;
+  Chart.defaults.plugins.tooltip.backgroundColor = 'rgba(36,27,58,.88)';
+  Chart.defaults.plugins.tooltip.titleFont = { weight: '600', size: 13 };
+  Chart.defaults.plugins.tooltip.padding = 10;
+  Chart.defaults.plugins.tooltip.cornerRadius = 10;
+  Chart.defaults.plugins.tooltip.displayColors = true;
+  Chart.defaults.plugins.tooltip.boxPadding = 4;
+  Chart.defaults.elements.bar.borderRadius = 6;
+  Chart.defaults.elements.point.radius = 3;
+  Chart.defaults.elements.point.hoverRadius = 6;
+  Chart.defaults.elements.line.tension = .35;
+}
+
+/* ── Helpers ──────────────────────────────────────────────────── */
+const _ctx = id => document.getElementById(id)?.getContext('2d');
+const _destroy = chart => { if (chart) { chart.destroy(); return null; } return null; };
+const _num = v => Number(v) || 0;
+const _shortDate = iso => {
+  const d = new Date(iso);
+  return d.toLocaleDateString('es-PE', { day: '2-digit', month: 'short' });
+};
+
+/* ── Función principal ────────────────────────────────────────── */
 async function cargarDashboard() {
   try {
+    /* skeleton loading */
     $('#listaStock').innerHTML = `
       <div class="skeleton-group">
         <div class="skel-row"><span class="skeleton w-25"></span><span class="skeleton flex-fill"></span><span class="skeleton w-15"></span></div>
         <div class="skel-row"><span class="skeleton w-25"></span><span class="skeleton flex-fill"></span><span class="skeleton w-15"></span></div>
       </div>`;
+    $('#listaActividad').innerHTML = `
+      <div class="skeleton-group">
+        <div class="skel-row"><span class="skeleton w-20"></span><span class="skeleton flex-fill"></span><span class="skeleton w-10"></span></div>
+        <div class="skel-row"><span class="skeleton w-20"></span><span class="skeleton flex-fill"></span><span class="skeleton w-10"></span></div>
+        <div class="skel-row"><span class="skeleton w-20"></span><span class="skeleton flex-fill"></span><span class="skeleton w-10"></span></div>
+      </div>`;
 
-    const { stats, productos } = await api('/dashboard');
+    const data = await api('/dashboard');
+    const { stats, productos, movimientosPorDia, topProductos, ultimosRegistros, radarData } = data;
 
-    const ent = Number(stats.unidadesEntregadas) || 0;
-    const dev = Number(stats.unidadesDevueltas) || 0;
+    const ent = _num(stats.unidadesEntregadas);
+    const dev = _num(stats.unidadesDevueltas);
+    const totalMovimientos = _num(stats.totalRegistros);
+    const totalHoy = _num(stats.entregasHoy) + _num(stats.devolucionesHoy);
+    const stockTotal = productos.reduce((s, p) => s + _num(p.stock), 0);
+    const tasaDev = (ent + dev) > 0 ? Math.round((dev / (ent + dev)) * 100) : 0;
 
-    countUp($('#statProductos'), Number(stats.totalProductos));
-    countUp($('#statHoy'), Number(stats.entregasHoy) + Number(stats.devolucionesHoy));
+    /* ── KPI cards ────────────────────────────────────────────── */
+    countUp($('#statProductos'), _num(stats.totalProductos));
+    countUp($('#statHoy'), totalHoy);
     countUp($('#statEntregadas'), ent);
     countUp($('#statDevueltas'), dev);
+    countUp($('#kpiStockTotal'), stockTotal);
+    $('#kpiDevolucionPct').textContent = tasaDev + '%';
+    countUp($('#kpiTotalRegistros'), totalMovimientos);
 
-    const totalU = ent + dev;
-    const pctEnt = totalU > 0 ? Math.round((ent / totalU) * 100) : 0;
-    $('#donutMov').style.setProperty('--p', pctEnt);
-    $('#donutPct').textContent = totalU > 0 ? `${pctEnt}%` : '—';
+    /* ── 1. Tendencia 14 días (Área + Línea) ─────────────────── */
+    _chartTendencia = _destroy(_chartTendencia);
+    const tendenciaEmpty = !movimientosPorDia || movimientosPorDia.length === 0;
+    $('#emptyTendencia')?.classList.toggle('d-none', !tendenciaEmpty);
+    const canvasT = $('#chartTendencia');
+    if (canvasT) canvasT.parentElement.style.display = tendenciaEmpty ? 'none' : '';
+
+    if (!tendenciaEmpty) {
+      const labels = movimientosPorDia.map(d => _shortDate(d.fecha));
+      _chartTendencia = new Chart(_ctx('chartTendencia'), {
+        type: 'line',
+        data: {
+          labels,
+          datasets: [
+            {
+              label: 'Entregas',
+              data: movimientosPorDia.map(d => _num(d.entregas)),
+              borderColor: C.purple,
+              backgroundColor: C.purpleL,
+              fill: true,
+              borderWidth: 2.5,
+            },
+            {
+              label: 'Devoluciones',
+              data: movimientosPorDia.map(d => _num(d.devoluciones)),
+              borderColor: C.pink,
+              backgroundColor: C.pinkL,
+              fill: true,
+              borderWidth: 2.5,
+            }
+          ]
+        },
+        options: {
+          responsive: true,
+          maintainAspectRatio: false,
+          interaction: { mode: 'index', intersect: false },
+          plugins: {
+            legend: { display: true, position: 'top', labels: { usePointStyle: true, pointStyle: 'circle', padding: 16, font: { weight: '600', size: 12 } } },
+            tooltip: { callbacks: { label: ctx => `${ctx.dataset.label}: ${ctx.parsed.y} uds` } }
+          },
+          scales: {
+            x: { grid: { display: false }, ticks: { font: { size: 11 } } },
+            y: { beginAtZero: true, grid: { color: 'rgba(0,0,0,.04)' }, ticks: { precision: 0, font: { size: 11 } } }
+          }
+        }
+      });
+    }
+
+    /* ── 2. Donut Entregas vs Devoluciones ────────────────────── */
+    _chartDonut = _destroy(_chartDonut);
+    if (ent + dev > 0) {
+      _chartDonut = new Chart(_ctx('chartDonut'), {
+        type: 'doughnut',
+        data: {
+          labels: ['Entregas', 'Devoluciones'],
+          datasets: [{
+            data: [ent, dev],
+            backgroundColor: [C.purple, C.pink],
+            borderWidth: 0,
+            hoverOffset: 8,
+          }]
+        },
+        options: {
+          responsive: true,
+          maintainAspectRatio: false,
+          cutout: '68%',
+          plugins: {
+            legend: { display: false },
+            tooltip: { callbacks: { label: ctx => `${ctx.label}: ${ctx.parsed.toLocaleString('es-PE')} uds` } }
+          }
+        },
+        plugins: [{
+          id: 'donutCenter',
+          afterDraw(chart) {
+            const { ctx: c, chartArea: { width, height, top } } = chart;
+            const total = ent + dev;
+            const pct = total > 0 ? Math.round((ent / total) * 100) : 0;
+            c.save();
+            c.font = "700 26px 'Space Grotesk', sans-serif";
+            c.fillStyle = C.purple;
+            c.textAlign = 'center';
+            c.textBaseline = 'middle';
+            c.fillText(pct + '%', width / 2, top + height / 2 - 8);
+            c.font = "500 11px 'Inter', sans-serif";
+            c.fillStyle = C.gray500;
+            c.fillText('en entregas', width / 2, top + height / 2 + 16);
+            c.restore();
+          }
+        }]
+      });
+    }
     $('#legEntregas').textContent = ent.toLocaleString('es-PE');
     $('#legDevoluciones').textContent = dev.toLocaleString('es-PE');
 
+    /* ── 3. Top 5 productos más movidos (Horizontal Bar) ──────── */
+    _chartTop = _destroy(_chartTop);
+    const topEmpty = !topProductos || topProductos.length === 0;
+    $('#emptyTop')?.classList.toggle('d-none', !topEmpty);
+    const canvasTop = $('#chartTopProductos');
+    if (canvasTop) canvasTop.parentElement.style.display = topEmpty ? 'none' : '';
+
+    if (!topEmpty) {
+      _chartTop = new Chart(_ctx('chartTopProductos'), {
+        type: 'bar',
+        data: {
+          labels: topProductos.map(p => p.nombre.length > 18 ? p.nombre.slice(0, 16) + '…' : p.nombre),
+          datasets: [
+            {
+              label: 'Entregas',
+              data: topProductos.map(p => _num(p.entregas)),
+              backgroundColor: C.purple,
+              borderRadius: 6,
+            },
+            {
+              label: 'Devoluciones',
+              data: topProductos.map(p => _num(p.devoluciones)),
+              backgroundColor: C.pink,
+              borderRadius: 6,
+            }
+          ]
+        },
+        options: {
+          indexAxis: 'y',
+          responsive: true,
+          maintainAspectRatio: false,
+          plugins: {
+            legend: { display: true, position: 'top', labels: { usePointStyle: true, pointStyle: 'rect', padding: 16, font: { weight: '600', size: 12 } } },
+            tooltip: { callbacks: { label: ctx => `${ctx.dataset.label}: ${ctx.parsed.x} uds` } }
+          },
+          scales: {
+            x: { beginAtZero: true, grid: { color: 'rgba(0,0,0,.04)' }, ticks: { precision: 0, font: { size: 11 } } },
+            y: { grid: { display: false }, ticks: { font: { size: 11, weight: '600' } } }
+          }
+        }
+      });
+    }
+
+    /* ── 4. Radar de movimientos por producto ──────────────────── */
+    _chartRadar = _destroy(_chartRadar);
+    const radarEmpty = !radarData || radarData.length < 2;
+    $('#emptyRadar')?.classList.toggle('d-none', !radarEmpty);
+    const canvasR = $('#chartRadar');
+    if (canvasR) canvasR.parentElement.style.display = radarEmpty ? 'none' : '';
+
+    if (!radarEmpty) {
+      _chartRadar = new Chart(_ctx('chartRadar'), {
+        type: 'radar',
+        data: {
+          labels: radarData.map(d => d.nombre.length > 14 ? d.nombre.slice(0, 12) + '…' : d.nombre),
+          datasets: [
+            {
+              label: 'Entregas',
+              data: radarData.map(d => _num(d.entregas)),
+              borderColor: C.purple,
+              backgroundColor: C.purpleL,
+              borderWidth: 2,
+              pointBackgroundColor: C.purple,
+            },
+            {
+              label: 'Devoluciones',
+              data: radarData.map(d => _num(d.devoluciones)),
+              borderColor: C.pink,
+              backgroundColor: C.pinkL,
+              borderWidth: 2,
+              pointBackgroundColor: C.pink,
+            }
+          ]
+        },
+        options: {
+          responsive: true,
+          maintainAspectRatio: false,
+          plugins: {
+            legend: { display: true, position: 'top', labels: { usePointStyle: true, pointStyle: 'circle', padding: 16, font: { weight: '600', size: 12 } } }
+          },
+          scales: {
+            r: {
+              beginAtZero: true,
+              grid: { color: 'rgba(0,0,0,.06)' },
+              angleLines: { color: 'rgba(0,0,0,.06)' },
+              pointLabels: { font: { size: 11, weight: '600' }, color: C.ink },
+              ticks: { display: false }
+            }
+          }
+        }
+      });
+    }
+
+    /* ── 5. Stock por producto (barras animadas) ───────────────── */
     $('#emptyDash').classList.toggle('d-none', productos.length > 0);
     $('#listaStock').classList.toggle('d-none', productos.length === 0);
 
     if (productos.length > 0) {
-      const maxStock = Math.max(1, ...productos.map(p => Math.abs(Number(p.stock))));
+      const maxStock = Math.max(1, ...productos.map(p => Math.abs(_num(p.stock))));
       $('#listaStock').innerHTML = productos.map((p, i) => {
-        const stock = Number(p.stock);
+        const stock = _num(p.stock);
         const clase = stock === 0 ? 'zero' : stock > 0 ? 'pos' : 'neg';
         const ancho = stock === 0 ? 100 : Math.max(4, (Math.abs(stock) / maxStock) * 100);
         return `
@@ -1248,8 +1501,8 @@ async function cargarDashboard() {
               <div class="stock-bar ${clase}" data-w="${ancho.toFixed(1)}"></div>
             </div>
             <div class="stock-nums">
-              <span class="num-pos" title="Entregas">+${Number(p.entregas).toLocaleString('es-PE')}</span>
-              <span class="num-neg" title="Devoluciones">−${Number(p.devoluciones).toLocaleString('es-PE')}</span>
+              <span class="num-pos" title="Entregas">+${_num(p.entregas).toLocaleString('es-PE')}</span>
+              <span class="num-neg" title="Devoluciones">−${_num(p.devoluciones).toLocaleString('es-PE')}</span>
               <span class="num-total">${stock.toLocaleString('es-PE')} <small>stock</small></span>
             </div>
           </div>`;
@@ -1260,60 +1513,32 @@ async function cargarDashboard() {
       }));
     }
 
-    // Render product detail cards
-    const productCardsEl = $('#productCards');
-    const emptyProductCards = $('#emptyProductCards');
-    if (productos.length === 0) {
-      productCardsEl.innerHTML = '';
-      emptyProductCards.classList.remove('d-none');
-    } else {
-      emptyProductCards.classList.add('d-none');
-      productCardsEl.innerHTML = productos.map((p, i) => {
-        const entregas = Number(p.entregas) || 0;
-        const devoluciones = Number(p.devoluciones) || 0;
-        const stock = Number(p.stock) || 0;
-        const maxVal = Math.max(entregas, devoluciones, 1);
-        const entPct = Math.round((entregas / maxVal) * 100);
-        const devPct = Math.round((devoluciones / maxVal) * 100);
-        const stockPct = Math.round((Math.abs(stock) / Math.max(entregas + devoluciones, 1)) * 100);
+    /* ── 6. Últimos movimientos (timeline) ────────────────────── */
+    $('#emptyActividad').classList.toggle('d-none', ultimosRegistros && ultimosRegistros.length > 0);
+    $('#listaActividad').classList.toggle('d-none', !ultimosRegistros || ultimosRegistros.length === 0);
+
+    if (ultimosRegistros && ultimosRegistros.length > 0) {
+      $('#listaActividad').innerHTML = ultimosRegistros.map((r, i) => {
+        const isEnt = r.tipo === 'ENTREGA';
         return `
-          <div class="col-12 col-md-6" style="animation-delay:${Math.min(i * .08, .5)}s">
-            <div class="product-card">
-              <div class="product-card-header">
-                <div class="product-card-icon ent"><i class="bi bi-truck"></i></div>
-                <div class="product-card-name">${esc(p.nombre)}</div>
-                <span class="product-card-badge ent">${esc(p.codigo)}</span>
+          <div class="activity-row" style="--d:${Math.min(i * .04, .35)}s">
+            <div class="activity-dot ${isEnt ? 'ent' : 'dev'}"></div>
+            <div class="activity-body">
+              <div class="activity-top">
+                <span class="activity-badge ${isEnt ? 'ent' : 'dev'}">${isEnt ? 'Entrega' : 'Devolución'}</span>
+                <span class="activity-cant ${isEnt ? 'pos' : 'neg'}">${isEnt ? '+' : '−'}${r.cantidad}</span>
               </div>
-              <div class="product-card-body">
-                <div class="product-card-grid">
-                  <div class="product-card-item">
-                    <label>Entregas</label>
-                    <span class="pos">+${entregas.toLocaleString('es-PE')} ${esc(p.unidad)}</span>
-                  </div>
-                  <div class="product-card-item">
-                    <label>Devoluciones</label>
-                    <span class="neg">−${devoluciones.toLocaleString('es-PE')} ${esc(p.unidad)}</span>
-                  </div>
-                  <div class="product-card-item">
-                    <label>Stock actual</label>
-                    <span>${stock.toLocaleString('es-PE')} ${esc(p.unidad)}</span>
-                  </div>
-                  <div class="product-card-item">
-                    <label>Movimientos</label>
-                    <span>${p.movimientos} registro${p.movimientos !== 1 ? 's' : ''}</span>
-                  </div>
-                </div>
-                <div class="product-card-bar">
-                  <div class="product-card-bar-fill ent" style="width: ${entPct}%"></div>
-                </div>
-                <div class="product-card-bar mt-2">
-                  <div class="product-card-bar-fill dev" style="width: ${devPct}%"></div>
-                </div>
+              <div class="activity-producto">${esc(r.producto)}</div>
+              <div class="activity-meta">
+                <span><i class="bi bi-hash"></i>${esc(r.codigo)}</span>
+                <span><i class="bi bi-truck"></i>${esc(r.placa)}</span>
+                <span><i class="bi bi-clock"></i>${esc(r.fecha)}</span>
               </div>
             </div>
           </div>`;
       }).join('');
     }
+
   } catch (err) {
     toast(err.message, 'danger');
   }

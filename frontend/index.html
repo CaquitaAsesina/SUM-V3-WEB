@@ -494,36 +494,37 @@
       <div class="view-header reveal">
         <div class="vh-text">
           <span class="crumb">Módulo Proveedores / Dashboard</span>
-          <h2>Dashboard</h2>
-          <p>Las entregas suman y las devoluciones restan, solo entre el mismo producto.</p>
+          <h2>Dashboard de Producción</h2>
+          <p>Control y seguimiento de suministros farmacéuticos en tiempo real.</p>
         </div>
         <button class="btn-refresh big" id="btnRefrescarDash" title="Actualizar datos"><i
             class="bi bi-arrow-clockwise"></i></button>
       </div>
 
+      <!-- ═══ KPI Row ═══ -->
       <div class="row g-3 g-xl-4">
-        <div class="col-6 col-xl-3">
+        <div class="col-6 col-lg-3">
           <div class="stat-card tilt-card reveal" style="--d:.02s">
             <div class="stat-icon grad-a"><i class="bi bi-box-seam"></i></div>
             <span class="stat-value" id="statProductos">0</span>
             <span class="stat-label">Productos activos</span>
           </div>
         </div>
-        <div class="col-6 col-xl-3">
+        <div class="col-6 col-lg-3">
           <div class="stat-card tilt-card reveal" style="--d:.08s">
             <div class="stat-icon grad-b"><i class="bi bi-calendar2-day"></i></div>
             <span class="stat-value" id="statHoy">0</span>
-            <span class="stat-label">Registros de hoy</span>
+            <span class="stat-label">Movimientos hoy</span>
           </div>
         </div>
-        <div class="col-6 col-xl-3">
+        <div class="col-6 col-lg-3">
           <div class="stat-card tilt-card reveal" style="--d:.14s">
             <div class="stat-icon grad-c"><i class="bi bi-truck"></i></div>
             <span class="stat-value pos" id="statEntregadas">0</span>
             <span class="stat-label">Unidades entregadas</span>
           </div>
         </div>
-        <div class="col-6 col-xl-3">
+        <div class="col-6 col-lg-3">
           <div class="stat-card tilt-card reveal" style="--d:.20s">
             <div class="stat-icon grad-d"><i class="bi bi-arrow-return-left"></i></div>
             <span class="stat-value neg" id="statDevueltas">0</span>
@@ -532,63 +533,155 @@
         </div>
       </div>
 
+      <!-- ═══ Second KPI row: Control indicators ═══ -->
       <div class="row g-3 g-xl-4 mt-1">
-        <div class="col-12 col-lg-5">
-          <div class="card-app h-100 reveal" style="--d:.10s">
-            <div class="card-app-head">
-              <div class="ca-icon grad-a"><i class="bi bi-pie-chart"></i></div>
-              <div class="flex-grow-1">
-                <h3>Distribución de unidades</h3>
-                <p>Proporción entre entregas y devoluciones</p>
-              </div>
-            </div>
-            <div class="donut-wrap">
-              <div class="donut" id="donutMov" style="--p:0">
-                <div class="donut-center">
-                  <span id="donutPct">—</span>
-                  <small>en entregas</small>
-                </div>
-              </div>
-              <ul class="donut-legend">
-                <li><span class="dot dot-a"></span> Entregas <b id="legEntregas">0</b></li>
-                <li><span class="dot dot-b"></span> Devoluciones <b id="legDevoluciones">0</b></li>
-              </ul>
+        <div class="col-12 col-md-4">
+          <div class="control-kpi reveal" style="--d:.06s">
+            <div class="ckpi-icon"><i class="bi bi-graph-up-arrow"></i></div>
+            <div class="ckpi-body">
+              <span class="ckpi-value" id="kpiStockTotal">0</span>
+              <span class="ckpi-label">Stock total en sistema</span>
             </div>
           </div>
         </div>
-
-        <div class="col-12 col-lg-7">
-          <div class="card-app h-100 card-table reveal" style="--d:.16s">
-            <div class="card-app-head">
-              <div class="ca-icon grad-b"><i class="bi bi-layers-half"></i></div>
-              <div class="flex-grow-1">
-                <h3>Stock por producto</h3>
-                <p>Mismo producto suma · Devoluciones restan</p>
-              </div>
+        <div class="col-12 col-md-4">
+          <div class="control-kpi reveal" style="--d:.12s">
+            <div class="ckpi-icon warn"><i class="bi bi-arrow-return-left"></i></div>
+            <div class="ckpi-body">
+              <span class="ckpi-value" id="kpiDevolucionPct">0%</span>
+              <span class="ckpi-label">Tasa de devolución</span>
             </div>
-            <div id="listaStock"></div>
-            <div class="empty-state d-none py-4" id="emptyDash" role="status">
-              <div class="es-icon sm"><i class="bi bi-graph-up"></i></div>
-              <h4>Sin datos aún</h4>
-              <p>Registra movimientos para ver el dashboard en acción.</p>
+          </div>
+        </div>
+        <div class="col-12 col-md-4">
+          <div class="control-kpi reveal" style="--d:.18s">
+            <div class="ckpi-icon info"><i class="bi bi-receipt"></i></div>
+            <div class="ckpi-body">
+              <span class="ckpi-value" id="kpiTotalRegistros">0</span>
+              <span class="ckpi-label">Total de registros</span>
             </div>
           </div>
         </div>
       </div>
 
-      <!-- Product detail cards -->
-      <div class="mt-4">
-        <div class="view-header reveal" style="--d:.05s">
-          <div class="vh-text">
-            <span class="crumb">Módulo Proveedores / Dashboard</span>
-            <h2>Movimientos por producto</h2>
-            <p>Detalle de entregas y devoluciones por cada producto registrado.</p>
+      <!-- ═══ Charts Row 1: Trend + Donut ═══ -->
+      <div class="row g-3 g-xl-4 mt-1">
+        <div class="col-12 col-lg-7">
+          <div class="card-app h-100 reveal" style="--d:.10s">
+            <div class="card-app-head">
+              <div class="ca-icon grad-a"><i class="bi bi-graph-up"></i></div>
+              <div class="flex-grow-1">
+                <h3>Movimientos últimos 14 días</h3>
+                <p>Tendencia diaria de entregas y devoluciones</p>
+              </div>
+            </div>
+            <div class="chart-container chart-tall">
+              <canvas id="chartTendencia"></canvas>
+            </div>
+            <div class="empty-state d-none py-4" id="emptyTendencia" role="status">
+              <div class="es-icon sm"><i class="bi bi-graph-up"></i></div>
+              <h4>Sin datos aún</h4>
+              <p>Registra movimientos para ver la tendencia.</p>
+            </div>
           </div>
         </div>
-        <div class="row g-3 g-xl-4" id="productCards"></div>          <div class="empty-state d-none py-4" id="emptyProductCards" role="status">
-          <div class="es-icon sm"><i class="bi bi-box-seam"></i></div>
-          <h4>Sin productos con movimientos</h4>
-          <p>Registra movimientos para ver el desglose por producto.</p>
+        <div class="col-12 col-lg-5">
+          <div class="card-app h-100 reveal" style="--d:.16s">
+            <div class="card-app-head">
+              <div class="ca-icon grad-c"><i class="bi bi-pie-chart"></i></div>
+              <div class="flex-grow-1">
+                <h3>Distribución de unidades</h3>
+                <p>Proporción entregas vs devoluciones</p>
+              </div>
+            </div>
+            <div class="chart-container chart-donut">
+              <canvas id="chartDonut"></canvas>
+            </div>
+            <div class="donut-legend-custom">
+              <span class="dleg-item"><span class="dleg-dot" style="background:#7c3aed"></span> Entregas <b id="legEntregas">0</b></span>
+              <span class="dleg-item"><span class="dleg-dot" style="background:#f472b6"></span> Devoluciones <b id="legDevoluciones">0</b></span>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- ═══ Charts Row 2: Bar by product + Radar ═══ -->
+      <div class="row g-3 g-xl-4 mt-1">
+        <div class="col-12 col-lg-6">
+          <div class="card-app h-100 reveal" style="--d:.10s">
+            <div class="card-app-head">
+              <div class="ca-icon grad-b"><i class="bi bi-bar-chart-line"></i></div>
+              <div class="flex-grow-1">
+                <h3>Top productos más movidos</h3>
+                <p>Los 5 productos con mayor rotación</p>
+              </div>
+            </div>
+            <div class="chart-container chart-tall">
+              <canvas id="chartTopProductos"></canvas>
+            </div>
+            <div class="empty-state d-none py-4" id="emptyTop" role="status">
+              <div class="es-icon sm"><i class="bi bi-bar-chart"></i></div>
+              <h4>Sin movimientos</h4>
+              <p>Registra movimientos para ver el ranking.</p>
+            </div>
+          </div>
+        </div>
+        <div class="col-12 col-lg-6">
+          <div class="card-app h-100 reveal" style="--d:.16s">
+            <div class="card-app-head">
+              <div class="ca-icon grad-d"><i class="bi bi-bullseye"></i></div>
+              <div class="flex-grow-1">
+                <h3>Radar de movimientos</h3>
+                <p>Volumen por producto comparativo</p>
+              </div>
+            </div>
+            <div class="chart-container chart-radar">
+              <canvas id="chartRadar"></canvas>
+            </div>
+            <div class="empty-state d-none py-4" id="emptyRadar" role="status">
+              <div class="es-icon sm"><i class="bi bi-bullseye"></i></div>
+              <h4>Sin datos</h4>
+              <p>Se necesitan al menos 2 productos con movimientos.</p>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- ═══ Stock detail + Recent activity ═══ -->
+      <div class="row g-3 g-xl-4 mt-1">
+        <div class="col-12 col-lg-6">
+          <div class="card-app h-100 card-table reveal" style="--d:.10s">
+            <div class="card-app-head">
+              <div class="ca-icon grad-a"><i class="bi bi-layers-half"></i></div>
+              <div class="flex-grow-1">
+                <h3>Stock por producto</h3>
+                <p>Estado actual del inventario</p>
+              </div>
+            </div>
+            <div id="listaStock"></div>
+            <div class="empty-state d-none py-4" id="emptyDash" role="status">
+              <div class="es-icon sm"><i class="bi bi-box-seam"></i></div>
+              <h4>Sin datos</h4>
+              <p>Agrega productos y registra movimientos.</p>
+            </div>
+          </div>
+        </div>
+        <div class="col-12 col-lg-6">
+          <div class="card-app h-100 reveal" style="--d:.16s">
+            <div class="card-app-head">
+              <div class="ca-icon grad-c"><i class="bi bi-clock-history"></i></div>
+              <div class="flex-grow-1">
+                <h3>Últimos movimientos</h3>
+                <p>Actividad reciente del sistema</p>
+              </div>
+            </div>
+            <div id="listaActividad"></div>
+            <div class="empty-state d-none py-4" id="emptyActividad" role="status">
+              <div class="es-icon sm"><i class="bi bi-clock"></i></div>
+              <h4>Sin actividad</h4>
+              <p>Los últimos movimientos aparecerán aquí.</p>
+            </div>
+          </div>
         </div>
       </div>
     </section>
@@ -670,7 +763,7 @@
   </nav>
 
   <div class="modal fade" id="modalNuevoRegistro" tabindex="-1" aria-hidden="true" aria-labelledby="modalNuevoRegistroLabel" aria-modal="true">
-    <div class="modal-dialog modal-dialog-centered dialog-registro">
+    <div class="modal-dialog modal-dialog-centered">
       <div class="modal-content modal-app fx-pop">
         <div class="reg-hero">
           <div class="rh-icon"><i class="bi bi-journal-plus"></i></div>
@@ -1001,6 +1094,7 @@
   </div><!-- /mainApp -->
 
   <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.4/dist/chart.umd.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/exceljs@4.4.0/dist/exceljs.min.js"></script>
   <script src="/js/api.js"></script>
   <script src="/js/app.js"></script>

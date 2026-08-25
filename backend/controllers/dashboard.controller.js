@@ -2,6 +2,7 @@ const db = require('../config/db');
 
 exports.resumen = async (_req, res) => {
   try {
+    /* ── KPIs principales ─────────────────────────────── */
     const [[stats]] = await db.query(`
       SELECT
         (SELECT COUNT(*) FROM productos WHERE activo = 1) AS totalProductos,
@@ -13,6 +14,7 @@ exports.resumen = async (_req, res) => {
         (SELECT COALESCE(SUM(cantidad), 0) FROM registros WHERE tipo = 'ENTREGA')     AS unidadesEntregadas,
         (SELECT COALESCE(SUM(cantidad), 0) FROM registros WHERE tipo = 'DEVOLUCION')  AS unidadesDevueltas`);
 
+    /* ── Stock por producto ───────────────────────────── */
     const [productos] = await db.query(`
       SELECT p.id, p.codigo, p.nombre, p.unidad,
              COALESCE(SUM(IF(r.tipo = 'ENTREGA',    r.cantidad, 0)), 0) AS entregas,
@@ -27,7 +29,60 @@ exports.resumen = async (_req, res) => {
        GROUP BY p.id, p.codigo, p.nombre, p.unidad
        ORDER BY stock DESC, p.nombre ASC`);
 
-    res.json({ stats, productos });
+    /* ── Movimientos por día (últimos 14 días) ────────── */
+    const [movimientosPorDia] = await db.query(`
+      SELECT DATE(fecha_hora) AS fecha,
+             SUM(IF(tipo='ENTREGA',cantidad,0))    AS entregas,
+             SUM(IF(tipo='DEVOLUCION',cantidad,0))  AS devoluciones,
+             COUNT(*) AS total
+        FROM registros
+       WHERE fecha_hora >= DATE_SUB(CURDATE(), INTERVAL 14 DAY)
+       GROUP BY DATE(fecha_hora)
+       ORDER BY fecha ASC`);
+
+    /* ── Top 5 productos más movidos ──────────────────── */
+    const [topProductos] = await db.query(`
+      SELECT p.nombre, p.codigo,
+             SUM(r.cantidad) AS totalMovido,
+             SUM(IF(r.tipo='ENTREGA',r.cantidad,0)) AS entregas,
+             SUM(IF(r.tipo='DEVOLUCION',r.cantidad,0)) AS devoluciones
+        FROM registros r
+        JOIN productos p ON p.id = r.producto_id
+       GROUP BY r.producto_id, p.nombre, p.codigo
+       ORDER BY totalMovido DESC
+       LIMIT 5`);
+
+    /* ── Últimos 8 registros ──────────────────────────── */
+    const [ultimosRegistros] = await db.query(`
+      SELECT r.codigo, r.tipo, r.cantidad, r.placa,
+             DATE_FORMAT(r.fecha_hora, '%d/%m/%Y · %h:%i %p') AS fecha,
+             p.nombre AS producto
+        FROM registros r
+        JOIN productos p ON p.id = r.producto_id
+       ORDER BY r.fecha_hora DESC
+       LIMIT 8`);
+
+    /* ── Movimientos por producto para el radar ────────── */
+    const [radarData] = await db.query(`
+      SELECT p.nombre,
+             COALESCE(SUM(IF(r.tipo='ENTREGA',r.cantidad,0)),0) AS entregas,
+             COALESCE(SUM(IF(r.tipo='DEVOLUCION',r.cantidad,0)),0) AS devoluciones
+        FROM productos p
+        LEFT JOIN registros r ON r.producto_id = p.id
+       WHERE p.activo = 1
+       GROUP BY p.id, p.nombre
+       HAVING (entregas + devoluciones) > 0
+       ORDER BY (entregas + devoluciones) DESC
+       LIMIT 6`);
+
+    res.json({
+      stats,
+      productos,
+      movimientosPorDia,
+      topProductos,
+      ultimosRegistros,
+      radarData
+    });
   } catch (err) {
     console.error('dashboard.resumen:', err.message);
     res.status(500).json({ error: 'Error al calcular el dashboard' });
