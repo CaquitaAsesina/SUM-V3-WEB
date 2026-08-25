@@ -92,28 +92,37 @@ function showWelcomeAnimation(username, nombreCompleto) {
   const welcomeText = $('#welcomeText');
   const welcomeSubtext = $('#welcomeSubtext');
 
+  // Respect reduced motion preference
+  const prefersReducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+  const stepDuration = prefersReducedMotion ? 5 : 40;
+  const progressIncrement = prefersReducedMotion ? 10 : 2;
+
   // Hide login with animation
   loginScreen.classList.add('hiding');
 
   setTimeout(() => {
     loginScreen.classList.add('d-none');
     welcomeOverlay.classList.remove('d-none');
+    welcomeOverlay.removeAttribute('aria-hidden');
 
-    // Animate progress bar
+    // Animate progress bar with percentage and keywords
     let progress = 0;
     const steps = [
-      { at: 15, text: 'Verificando credenciales...', sub: '' },
-      { at: 40, text: 'Cargando módulos...', sub: '' },
-      { at: 65, text: 'Preparando datos...', sub: '' },
-      { at: 85, text: 'Configurando interfaz...', sub: '' },
+      { at: 10, text: 'Verificando credenciales...', sub: '' },
+      { at: 25, text: 'Cargando recursos...', sub: '' },
+      { at: 45, text: 'Preparando tu experiencia...', sub: '' },
+      { at: 65, text: 'Conectando servicios...', sub: '' },
+      { at: 82, text: 'Optimizando interfaz...', sub: '' },
+      { at: 93, text: '¡Bienvenido de vuelta!', sub: '' },
       { at: 100, text: '¡Listo!', sub: '' }
     ];
     let stepIndex = 0;
 
     const interval = setInterval(() => {
-      progress += 2;
+      progress += progressIncrement;
       if (progress > 100) progress = 100;
       progressBar.style.width = progress + '%';
+      welcomeSubtext.textContent = progress + '%';
 
       if (stepIndex < steps.length && progress >= steps[stepIndex].at) {
         welcomeText.textContent = steps[stepIndex].text;
@@ -122,33 +131,36 @@ function showWelcomeAnimation(username, nombreCompleto) {
 
       if (progress >= 100) {
         clearInterval(interval);
-        // Create confetti
-        createParticles(welcomeOverlay);
+        // Create confetti (skip if reduced motion)
+        if (!prefersReducedMotion) createParticles(welcomeOverlay);
         // Exit welcome
         setTimeout(() => {
           welcomeOverlay.classList.add('hiding');
           setTimeout(() => {
             welcomeOverlay.classList.add('d-none');
             welcomeOverlay.classList.remove('hiding');
+            welcomeOverlay.setAttribute('aria-hidden', 'true');
             progressBar.style.width = '0%';
             welcomeText.textContent = 'Iniciando sistema...';
+            welcomeSubtext.textContent = '0%';
             sessionStorage.setItem('currentUser', JSON.stringify(currentUser));
             showMainApp();
           }, 600);
-        }, 400);
+        }, prefersReducedMotion ? 100 : 400);
       }
-    }, 40);
-  }, 500);
+    }, stepDuration);
+  }, prefersReducedMotion ? 100 : 500);
 }
 
 function createParticles(container) {
-  const colors = ['#4ade80', '#22c55e', '#a78bfa', '#c4b5fd', '#fbbf24', '#f472b6'];
+  const colors = ['#4ade80', '#22c55e', '#a78bfa', '#c4b5fd', '#fbbf24', '#f472b6', '#60a5fa'];
   const shapes = ['circle', 'square'];
 
   for (let i = 0; i < 50; i++) {
     const particle = document.createElement('div');
     const shape = shapes[Math.floor(Math.random() * shapes.length)];
     const size = 4 + Math.random() * 10;
+    const goLeft = Math.random() > 0.5;
     particle.className = 'particle';
     particle.style.cssText = `
       left: ${Math.random() * 100}%;
@@ -157,11 +169,11 @@ function createParticles(container) {
       height: ${size}px;
       background: ${colors[Math.floor(Math.random() * colors.length)]};
       border-radius: ${shape === 'circle' ? '50%' : '2px'};
-      animation: particleFall ${1.5 + Math.random() * 2.5}s linear ${Math.random() * 0.8}s forwards;
+      animation: ${goLeft ? 'particleFallLeft' : 'particleFall'} ${1.5 + Math.random() * 2.5}s linear ${Math.random() * 0.8}s forwards;
       opacity: ${0.7 + Math.random() * 0.3};
     `;
     container.appendChild(particle);
-    setTimeout(() => particle.remove(), 4500);
+    setTimeout(() => particle.remove(), 5000);
   }
 }
 
@@ -201,6 +213,26 @@ if (document.readyState === 'loading') {
   initLogin();
 }
 
+// Dismiss splash screen after DOM is ready
+function dismissSplash() {
+  const splash = document.getElementById('splashScreen');
+  if (splash && !splash.classList.contains('hide')) {
+    splash.classList.add('hide');
+    splash.setAttribute('aria-hidden', 'true');
+    setTimeout(() => {
+      splash.remove();
+      const styles = document.getElementById('splashStyles');
+      if (styles) styles.remove();
+    }, 600);
+  }
+}
+// Remove splash once page is loaded
+if (document.readyState === 'complete') {
+  setTimeout(dismissSplash, 300);
+} else {
+  window.addEventListener('load', () => setTimeout(dismissSplash, 400));
+}
+
 /* ========== REGISTER ========== */
 
 $('#btnShowRegister')?.addEventListener('click', () => {
@@ -238,24 +270,32 @@ function showLogoutAnimation() {
   const logoutText = $('#logoutText');
   const logoutSubtext = $('#logoutSubtext');
 
+  // Respect reduced motion preference
+  const prefersReducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+  const stepDuration = prefersReducedMotion ? 3 : 35;
+  const progressIncrement = prefersReducedMotion ? 10 : 3;
+
   // Hide main app
   $('#mainApp').classList.add('d-none');
   logoutOverlay.classList.remove('d-none');
+  logoutOverlay.removeAttribute('aria-hidden');
 
   let progress = 0;
   const steps = [
-    { at: 20, text: 'Guardando cambios...', sub: '' },
-    { at: 50, text: 'Cerrando módulos...', sub: '' },
-    { at: 75, text: 'Limpiando sesión...', sub: '' },
-    { at: 95, text: '¡Hasta pronto!', sub: '' },
-    { at: 100, text: 'Sesión cerrada', sub: '' }
+    { at: 15, text: 'Guardando cambios...', sub: '' },
+    { at: 35, text: 'Cerrando módulos...', sub: '' },
+    { at: 55, text: 'Limpiando datos...', sub: '' },
+    { at: 75, text: 'Protegiendo tu información...', sub: '' },
+    { at: 90, text: '¡Hasta pronto!', sub: '' },
+    { at: 100, text: 'Vuelve cuando quieras', sub: '' }
   ];
   let stepIndex = 0;
 
   const interval = setInterval(() => {
-    progress += 3;
+    progress += progressIncrement;
     if (progress > 100) progress = 100;
     progressBar.style.width = progress + '%';
+    logoutSubtext.textContent = progress + '%';
 
     if (stepIndex < steps.length && progress >= steps[stepIndex].at) {
       logoutText.textContent = steps[stepIndex].text;
@@ -270,8 +310,10 @@ function showLogoutAnimation() {
           // Clean up
           logoutOverlay.classList.add('d-none');
           logoutOverlay.classList.remove('hiding');
+          logoutOverlay.setAttribute('aria-hidden', 'true');
           progressBar.style.width = '0%';
           logoutText.textContent = 'Cerrando sesión...';
+          logoutSubtext.textContent = '0%';
           currentUser = null;
           sessionStorage.removeItem('currentUser');
           // Remove pending overlays
@@ -287,11 +329,13 @@ function showLogoutAnimation() {
           loginBtn.disabled = false;
           loginBtn.querySelector('.login-btn-text').classList.remove('d-none');
           loginBtn.querySelector('.login-btn-loading').classList.add('d-none');
+          // Focus management: focus the login user input
+          setTimeout(() => { $('#loginUser')?.focus(); }, 100);
           window.scrollTo({ top: 0 });
         }, 600);
-      }, 300);
+      }, prefersReducedMotion ? 50 : 300);
     }
-  }, 35);
+  }, stepDuration);
 }
 
 /* ========== CHANGE PASSWORD ========== */
@@ -412,14 +456,25 @@ function fmtFecha(dt) {
 
 function toast(msg, type = 'success') {
   const iconos = { success: 'check-circle-fill', danger: 'x-circle-fill', warning: 'exclamation-triangle-fill', info: 'info-circle-fill' };
+  const roles = { success: 'status', danger: 'alert', warning: 'alert', info: 'status' };
   const el = document.createElement('div');
   el.className = `toast-app ${type}`;
-  el.innerHTML = `<i class="bi bi-${iconos[type] || 'info-circle'}"></i><span class="t-msg">${esc(msg)}</span>`;
+  el.setAttribute('role', roles[type] || 'status');
+  el.setAttribute('aria-live', type === 'danger' ? 'assertive' : 'polite');
+  el.innerHTML = `<i class="bi bi-${iconos[type] || 'info-circle'}" aria-hidden="true"></i><span class="t-msg">${esc(msg)}</span>`;
   $('#toasts').appendChild(el);
+  // Auto-dismiss
+  const duration = 3400;
   setTimeout(() => {
     el.classList.add('out');
     el.addEventListener('animationend', () => el.remove(), { once: true });
-  }, 3400);
+  }, duration);
+  // Manual dismiss on click
+  el.style.cursor = 'pointer';
+  el.addEventListener('click', () => {
+    el.classList.add('out');
+    el.addEventListener('animationend', () => el.remove(), { once: true });
+  }, { once: true });
 }
 
 function countUp(el, target, sufijo = '') {
@@ -1268,6 +1323,7 @@ $('#btnRefrescarDash').addEventListener('click', cargarDashboard);
 
 /* ---------- animaciones ---------- */
 
+// Tilt effect only on non-touch devices with fine pointer
 if (window.matchMedia('(hover:hover) and (pointer:fine)').matches) {
   $$('.tilt-card').forEach(card => {
     card.addEventListener('pointermove', e => {
@@ -1279,6 +1335,17 @@ if (window.matchMedia('(hover:hover) and (pointer:fine)').matches) {
     card.addEventListener('pointerleave', () => { card.style.transform = ''; });
   });
 }
+
+// Keyboard shortcut: Escape to close modals
+document.addEventListener('keydown', e => {
+  if (e.key === 'Escape') {
+    const openModals = $$('.modal.show');
+    if (openModals.length > 0) {
+      const lastModal = openModals[openModals.length - 1];
+      bootstrap.Modal.getOrCreateInstance(lastModal).hide();
+    }
+  }
+});
 
 const io = new IntersectionObserver(entries => {
   entries.forEach(en => {

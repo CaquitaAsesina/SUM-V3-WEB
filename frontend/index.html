@@ -15,9 +15,53 @@
   <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
   <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css" rel="stylesheet">
   <link rel="stylesheet" href="/css/styles.css">
+
+  <!-- Inline splash: appears instantly, no CSS/JS needed -->
+  <style id="splashStyles">
+    #splashScreen {
+      position: fixed; inset: 0; z-index: 99999;
+      background: linear-gradient(135deg, #4c1d95 0%, #6d28d9 40%, #7c3aed 70%, #a78bfa 100%);
+      display: flex; flex-direction: column; align-items: center; justify-content: center;
+      transition: opacity .5s cubic-bezier(.22,1,.36,1), transform .5s cubic-bezier(.22,1,.36,1);
+    }
+    #splashScreen.hide { opacity: 0; transform: scale(1.08); pointer-events: none; }
+    #splashScreen .splash-logo {
+      width: 80px; height: 80px; border-radius: 22px;
+      background: rgba(255,255,255,.16); backdrop-filter: blur(12px);
+      display: grid; place-items: center; font-size: 2.4rem; color: #fff;
+      box-shadow: inset 0 0 0 1px rgba(255,255,255,.25), 0 16px 40px -8px rgba(0,0,0,.35);
+      margin-bottom: 28px; animation: splSpin 2s ease-in-out infinite;
+    }
+    #splashScreen .splash-spinner {
+      width: 48px; height: 48px; border-radius: 50%;
+      border: 3.5px solid rgba(255,255,255,.18); border-top-color: #4ade80;
+      animation: splRotate .9s linear infinite;
+      margin-bottom: 22px;
+    }
+    #splashScreen .splash-text {
+      color: #fff; font-family: 'Segoe UI', system-ui, sans-serif; font-size: .9rem;
+      font-weight: 500; opacity: .85; letter-spacing: .02em;
+      animation: splFadeText 2s ease-in-out infinite alternate;
+    }
+    #splashScreen .splash-sub {
+      color: rgba(255,255,255,.55); font-size: .7rem; font-weight: 600;
+      letter-spacing: .15em; text-transform: uppercase; margin-top: 8px;
+    }
+    @keyframes splSpin { 50% { transform: translateY(-8px) rotate(-6deg); } }
+    @keyframes splRotate { to { transform: rotate(360deg); } }
+    @keyframes splFadeText { from { opacity: .55; } to { opacity: 1; } }
+  </style>
 </head>
 
 <body>
+
+  <!-- Splash screen: shows instantly on page load -->
+  <div id="splashScreen" role="status" aria-label="Cargando sistema">
+    <div class="splash-logo" aria-hidden="true">💊</div>
+    <div class="splash-spinner" aria-hidden="true"></div>
+    <div class="splash-text">Cargando sistema...</div>
+    <div class="splash-sub">Suministros · Farmacias Peruanas</div>
+  </div>
 
   <!-- Login Screen -->
   <div class="login-screen" id="loginScreen">
@@ -78,19 +122,19 @@
 
           <form id="loginForm" novalidate>
             <div class="login-field">
-              <label class="login-label">USUARIO</label>
+              <label class="login-label" for="loginUser">USUARIO</label>
               <div class="login-input-group">
-                <i class="bi bi-person"></i>
-                <input type="text" id="loginUser" placeholder="Ingrese su usuario" autocomplete="off" autofocus>
+                <i class="bi bi-person" aria-hidden="true"></i>
+                <input type="text" id="loginUser" placeholder="Ingrese su usuario" autocomplete="username" autofocus aria-required="true">
               </div>
             </div>
 
             <div class="login-field">
-              <label class="login-label">CONTRASEÑA</label>
+              <label class="login-label" for="loginPass">CONTRASEÑA</label>
               <div class="login-input-group">
-                <i class="bi bi-lock"></i>
-                <input type="password" id="loginPass" placeholder="Ingrese su contraseña">
-                <button type="button" class="toggle-pass" id="togglePass">
+                <i class="bi bi-lock" aria-hidden="true"></i>
+                <input type="password" id="loginPass" placeholder="Ingrese su contraseña" autocomplete="current-password" aria-required="true">
+                <button type="button" class="toggle-pass" id="togglePass" aria-label="Mostrar contraseña">
                   <i class="bi bi-eye"></i>
                 </button>
               </div>
@@ -134,7 +178,7 @@
         <div class="progress-bar logout-bar" id="logoutProgressBar"></div>
       </div>
       <h2 class="welcome-text" id="logoutText">Cerrando sesión...</h2>
-      <p class="welcome-subtext" id="logoutSubtext">Guardando cambios</p>
+      <p class="welcome-subtext" id="logoutSubtext">0%</p>
     </div>
   </div>
 
@@ -153,7 +197,7 @@
         <div class="progress-bar" id="welcomeProgressBar"></div>
       </div>
       <h2 class="welcome-text" id="welcomeText">Iniciando sistema...</h2>
-      <p class="welcome-subtext" id="welcomeSubtext">Preparando tu sesión</p>
+      <p class="welcome-subtext" id="welcomeSubtext">0%</p>
     </div>
   </div>
 
@@ -164,27 +208,26 @@
         <button type="button" class="register-close" id="btnCloseRegister"><i class="bi bi-x-lg"></i></button>
         <div class="register-logo"><i class="bi bi-person-plus"></i></div>
         <h2 class="register-title">Crear cuenta</h2>
-        <p class="register-subtitle">Registra un nuevo usuario en el sistema</p>
-        <form id="formRegister" novalidate>
+        <p class="register-subtitle">Registra un nuevo usuario en el sistema</p>          <form id="formRegister" novalidate>
           <div class="login-field">
-            <label class="login-label">NOMBRE COMPLETO</label>
+            <label class="login-label" for="regNombre">NOMBRE COMPLETO</label>
             <div class="login-input-group">
-              <i class="bi bi-person"></i>
-              <input type="text" id="regNombre" placeholder="Ej. Juan Pérez" autocomplete="off">
+              <i class="bi bi-person" aria-hidden="true"></i>
+              <input type="text" id="regNombre" placeholder="Ej. Juan Pérez" autocomplete="name" aria-required="true">
             </div>
           </div>
           <div class="login-field">
-            <label class="login-label">USUARIO</label>
+            <label class="login-label" for="regUsuario">USUARIO</label>
             <div class="login-input-group">
-              <i class="bi bi-at"></i>
-              <input type="text" id="regUsuario" placeholder="Ej. JP001" autocomplete="off">
+              <i class="bi bi-at" aria-hidden="true"></i>
+              <input type="text" id="regUsuario" placeholder="Ej. JP001" autocomplete="username" aria-required="true">
             </div>
           </div>
           <div class="login-field">
-            <label class="login-label">CONTRASEÑA</label>
+            <label class="login-label" for="regPass">CONTRASEÑA</label>
             <div class="login-input-group">
-              <i class="bi bi-lock"></i>
-              <input type="password" id="regPass" placeholder="Mínimo 6 caracteres" minlength="6">
+              <i class="bi bi-lock" aria-hidden="true"></i>
+              <input type="password" id="regPass" placeholder="Mínimo 6 caracteres" minlength="6" autocomplete="new-password" aria-required="true">
             </div>
           </div>
           <button type="submit" class="login-btn" id="registerBtn">
@@ -358,7 +401,7 @@
           </div>
         </div>
 
-        <div class="empty-state d-none" id="emptyRegistros">
+        <div class="empty-state d-none" id="emptyRegistros" role="status">
           <div class="es-icon"><i class="bi bi-inbox"></i></div>
           <h4 id="emptyRegistrosTitulo">Sin registros todavía</h4>
           <p>Cuando registres una entrega o devolución aparecerá aquí.</p>
@@ -418,7 +461,7 @@
               class="skeleton w-15"></span><span class="skeleton w-10"></span></div>
         </div>
 
-        <div class="empty-state d-none" id="emptyProductos">
+        <div class="empty-state d-none" id="emptyProductos" role="status">
           <div class="es-icon"><i class="bi bi-box"></i></div>
           <h4 id="emptyProductosTitulo">No hay productos</h4>
           <p>Crea tu primer producto para poder registrarlo en los movimientos.</p>
@@ -524,7 +567,7 @@
               </div>
             </div>
             <div id="listaStock"></div>
-            <div class="empty-state d-none py-4" id="emptyDash">
+            <div class="empty-state d-none py-4" id="emptyDash" role="status">
               <div class="es-icon sm"><i class="bi bi-graph-up"></i></div>
               <h4>Sin datos aún</h4>
               <p>Registra movimientos para ver el dashboard en acción.</p>
@@ -542,8 +585,7 @@
             <p>Detalle de entregas y devoluciones por cada producto registrado.</p>
           </div>
         </div>
-        <div class="row g-3 g-xl-4" id="productCards"></div>
-        <div class="empty-state d-none py-4" id="emptyProductCards">
+        <div class="row g-3 g-xl-4" id="productCards"></div>          <div class="empty-state d-none py-4" id="emptyProductCards" role="status">
           <div class="es-icon sm"><i class="bi bi-box-seam"></i></div>
           <h4>Sin productos con movimientos</h4>
           <p>Registra movimientos para ver el desglose por producto.</p>
@@ -577,7 +619,7 @@
           <div class="skel-row"><span class="skeleton w-25"></span><span class="skeleton w-20"></span><span class="skeleton flex-fill"></span><span class="skeleton w-15"></span><span class="skeleton w-10"></span></div>
         </div>
 
-        <div class="empty-state d-none" id="emptyUsuarios">
+        <div class="empty-state d-none" id="emptyUsuarios" role="status">
           <div class="es-icon"><i class="bi bi-people"></i></div>
           <h4>Sin usuarios</h4>
           <p>Crea el primer usuario para comenzar.</p>
@@ -601,7 +643,7 @@
       </div>
     </section>
 
-    <footer class="app-footer">
+    <footer class="app-footer" role="contentinfo">
       <span>© 2026 Suministros · Farmacias Peruanas</span>
       <span class="d-none d-sm-inline">Contacto: 902044601</span>
     </footer>
@@ -627,13 +669,13 @@
     </a>
   </nav>
 
-  <div class="modal fade" id="modalNuevoRegistro" tabindex="-1" aria-hidden="true">
+  <div class="modal fade" id="modalNuevoRegistro" tabindex="-1" aria-hidden="true" aria-labelledby="modalNuevoRegistroLabel" aria-modal="true">
     <div class="modal-dialog modal-dialog-centered dialog-registro">
       <div class="modal-content modal-app fx-pop">
         <div class="reg-hero">
           <div class="rh-icon"><i class="bi bi-journal-plus"></i></div>
           <div class="flex-grow-1">
-            <h5>Registrar movimiento</h5>
+            <h5 id="modalNuevoRegistroLabel">Registrar movimiento</h5>
             <small><i class="bi bi-magic me-1"></i>Código único y fecha/hora automáticos</small>
           </div>
           <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Cerrar"></button>
@@ -702,7 +744,7 @@
     </div>
   </div>
 
-  <div class="modal fade" id="modalProducto" tabindex="-1" aria-hidden="true">
+  <div class="modal fade" id="modalProducto" tabindex="-1" aria-hidden="true" aria-labelledby="tituloModalProducto" aria-modal="true">
     <div class="modal-dialog modal-dialog-centered">
       <div class="modal-content modal-app fx-pop">
         <div class="modal-header">
@@ -759,7 +801,7 @@
     </div>
   </div>
 
-  <div class="modal fade" id="modalRegistroEdit" tabindex="-1" aria-hidden="true">
+  <div class="modal fade" id="modalRegistroEdit" tabindex="-1" aria-hidden="true" aria-labelledby="editCodigoChip" aria-modal="true">
     <div class="modal-dialog modal-dialog-centered">
       <div class="modal-content modal-app fx-pop">
         <div class="modal-header">
@@ -820,14 +862,14 @@
     </div>
   </div>
 
-  <div class="modal fade" id="modalUsuario" tabindex="-1" aria-hidden="true">
+  <div class="modal fade" id="modalUsuario" tabindex="-1" aria-hidden="true" aria-labelledby="modalUsuarioLabel" aria-modal="true">
     <div class="modal-dialog modal-dialog-centered">
       <div class="modal-content modal-app fx-pop">
         <div class="modal-header">
           <div class="mh-title">
             <div class="ca-icon grad-a sm"><i class="bi bi-person-plus"></i></div>
             <div>
-              <h5 class="modal-title">Nuevo usuario</h5>
+              <h5 class="modal-title" id="modalUsuarioLabel">Nuevo usuario</h5>
               <small>Crea un nuevo usuario para el sistema</small>
             </div>
           </div>
@@ -872,14 +914,14 @@
     </div>
   </div>
 
-  <div class="modal fade" id="modalChangePass" tabindex="-1" aria-hidden="true">
+  <div class="modal fade" id="modalChangePass" tabindex="-1" aria-hidden="true" aria-labelledby="modalChangePassLabel" aria-modal="true">
     <div class="modal-dialog modal-dialog-centered">
       <div class="modal-content modal-app fx-pop">
         <div class="modal-header">
           <div class="mh-title">
             <div class="ca-icon grad-a sm"><i class="bi bi-key"></i></div>
             <div>
-              <h5 class="modal-title">Cambiar contraseña</h5>
+              <h5 class="modal-title" id="modalChangePassLabel">Cambiar contraseña</h5>
               <small>Actualiza tu contraseña de acceso</small>
             </div>
           </div>
@@ -939,7 +981,7 @@
     </div>
   </div>
 
-  <div class="modal fade" id="modalConfirm" tabindex="-1" aria-hidden="true">
+  <div class="modal fade" id="modalConfirm" tabindex="-1" aria-hidden="true" aria-labelledby="confirmTitulo" aria-modal="true">
     <div class="modal-dialog modal-dialog-centered modal-sm">
       <div class="modal-content modal-app text-center fx-pop">
         <div class="modal-body p-4">
@@ -955,7 +997,7 @@
     </div>
   </div>
 
-  <div class="toast-container" id="toasts" role="alert" aria-live="polite"></div>
+  <div class="toast-container" id="toasts" role="status" aria-live="polite" aria-atomic="false"></div>
   </div><!-- /mainApp -->
 
   <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
