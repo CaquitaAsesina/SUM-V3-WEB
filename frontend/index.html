@@ -476,7 +476,7 @@
               <tr>
                 <th>Código</th>
                 <th>Producto</th>
-                <th class="d-none d-md-table-cell">Descripción</th>
+                <th class="d-none d-md-table-cell">Proveedor</th>
                 <th>Unidad</th>
                 <th class="text-center">Estado</th>
                 <th class="d-none d-lg-table-cell text-center">Movimientos</th>
@@ -876,9 +876,11 @@
                 </div>
               </div>
               <div class="col-12">
-                <label class="form-label" for="txtDescProd">Descripción <small>(opcional)</small></label>
-                <textarea class="form-control" id="txtDescProd" rows="2" maxlength="255"
-                  placeholder="Detalle del producto, presentación, laboratorio…"></textarea>
+                <label class="form-label" for="inpProveedor">Proveedor</label>
+                <input type="text" class="form-control" id="inpProveedor" list="listaProveedores"
+                  maxlength="120" placeholder="Ej. PACSE, Distribuidora XYZ…" required>
+                <div class="invalid-feedback">El proveedor es obligatorio.</div>
+                <datalist id="listaProveedores"></datalist>
               </div>
             </div>
           </form>

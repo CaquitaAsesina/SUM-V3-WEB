@@ -21,20 +21,32 @@ exports.listar = async (_req, res) => {
 
 exports.crear = async (req, res) => {
   const nombre = String(req.body?.nombre ?? '').trim();
-  const descripcion = String(req.body?.descripcion ?? '').trim() || null;
+  const proveedor = String(req.body?.proveedor ?? '').trim();
   const unidad = String(req.body?.unidad ?? '').trim() || 'Unidad';
   const activo = req.body?.activo === false ? 0 : 1;
 
   if (!nombre) return res.status(400).json({ error: 'El nombre del producto es obligatorio' });
   if (nombre.length > 120) return res.status(400).json({ error: 'El nombre no puede superar 120 caracteres' });
-  if (descripcion && descripcion.length > 255) return res.status(400).json({ error: 'La descripción es demasiado larga' });
+  if (!proveedor) return res.status(400).json({ error: 'El proveedor es obligatorio' });
+  if (proveedor.length > 120) return res.status(400).json({ error: 'El nombre del proveedor es demasiado largo' });
 
   const conn = await db.getConnection();
   try {
+    // Verificar duplicado: mismo nombre y mismo proveedor
+    const [[dup]] = await conn.execute(
+      'SELECT id, codigo FROM productos WHERE LOWER(nombre) = LOWER(?) AND LOWER(proveedor) = LOWER(?) LIMIT 1',
+      [nombre, proveedor]
+    );
+    if (dup) {
+      return res.status(409).json({ 
+        error: `Ya existe un producto "${nombre}" del proveedor "${proveedor}" (${dup.codigo})` 
+      });
+    }
+
     await conn.beginTransaction();
     const [ins] = await conn.execute(
-      'INSERT INTO productos (codigo, nombre, descripcion, unidad, activo) VALUES (NULL, ?, ?, ?, ?)',
-      [nombre, descripcion, unidad, activo]
+      'INSERT INTO productos (codigo, nombre, proveedor, unidad, activo) VALUES (NULL, ?, ?, ?, ?)',
+      [nombre, proveedor, unidad, activo]
     );
     const codigo = `PRD-${String(ins.insertId).padStart(4, '0')}`;
     await conn.execute('UPDATE productos SET codigo = ? WHERE id = ?', [codigo, ins.insertId]);
@@ -56,21 +68,33 @@ exports.actualizar = async (req, res) => {
   if (!Number.isInteger(id) || id <= 0) return res.status(400).json({ error: 'Identificador inválido' });
 
   const nombre = String(req.body?.nombre ?? '').trim();
-  const descripcion = String(req.body?.descripcion ?? '').trim() || null;
+  const proveedor = String(req.body?.proveedor ?? '').trim();
   const unidad = String(req.body?.unidad ?? '').trim() || 'Unidad';
   const activo = req.body?.activo === false ? 0 : 1;
 
   if (!nombre) return res.status(400).json({ error: 'El nombre del producto es obligatorio' });
+  if (!proveedor) return res.status(400).json({ error: 'El proveedor es obligatorio' });
 
   const conn = await db.getConnection();
   try {
     const [[existe]] = await conn.execute('SELECT id FROM productos WHERE id = ? LIMIT 1', [id]);
     if (!existe) return res.status(404).json({ error: 'Producto no encontrado' });
 
+    // Verificar duplicado: mismo nombre y proveedor en otro producto
+    const [[dup]] = await conn.execute(
+      'SELECT id, codigo FROM productos WHERE LOWER(nombre) = LOWER(?) AND LOWER(proveedor) = LOWER(?) AND id != ? LIMIT 1',
+      [nombre, proveedor, id]
+    );
+    if (dup) {
+      return res.status(409).json({ 
+        error: `Ya existe otro producto "${nombre}" del proveedor "${proveedor}" (${dup.codigo})` 
+      });
+    }
+
     await conn.beginTransaction();
     await conn.execute(
-      'UPDATE productos SET nombre = ?, descripcion = ?, unidad = ?, activo = ? WHERE id = ?',
-      [nombre, descripcion, unidad, activo, id]
+      'UPDATE productos SET nombre = ?, proveedor = ?, unidad = ?, activo = ? WHERE id = ?',
+      [nombre, proveedor, unidad, activo, id]
     );
     await conn.commit();
 
@@ -82,6 +106,18 @@ exports.actualizar = async (req, res) => {
     res.status(500).json({ error: 'No se pudo actualizar el producto' });
   } finally {
     conn.release();
+  }
+};
+
+exports.proveedores = async (_req, res) => {
+  try {
+    const [rows] = await db.query(
+      `SELECT DISTINCT proveedor FROM productos WHERE proveedor IS NOT NULL AND proveedor != '' ORDER BY proveedor`
+    );
+    res.json(rows.map(r => r.proveedor));
+  } catch (err) {
+    console.error('productos.proveedores:', err.message);
+    res.status(500).json({ error: 'Error al obtener los proveedores' });
   }
 };
 

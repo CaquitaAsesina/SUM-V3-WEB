@@ -537,6 +537,19 @@ async function cargarProductos() {
   state.productos = await api('/productos');
   poblarSelects();
   renderProductos();
+  cargarProveedores();
+}
+
+async function cargarProveedores() {
+  try {
+    const proveedores = await api('/productos/proveedores');
+    const datalist = $('#listaProveedores');
+    if (datalist) {
+      datalist.innerHTML = proveedores.map(p => `<option value="${esc(p)}">`).join('');
+    }
+  } catch (err) {
+    console.error('Error cargando proveedores:', err);
+  }
 }
 
 function poblarSelects() {
@@ -577,9 +590,9 @@ function renderProductos() {
         <td><span class="badge badge-code">${esc(p.codigo)}</span></td>
         <td>
           <span class="prod-name">${esc(p.nombre)}</span><br>
-          <span class="prod-meta d-md-none">${esc(p.descripcion || 'Sin descripción')}</span>
+          <span class="prod-meta d-md-none">${esc(p.proveedor || 'Sin proveedor')}</span>
         </td>
-        <td class="d-none d-md-table-cell"><span class="text-muted-lila small">${esc(p.descripcion || '—')}</span></td>
+        <td class="d-none d-md-table-cell"><span class="text-muted-lila small">${esc(p.proveedor || '—')}</span></td>
         <td><span class="badge badge-placa">${esc(p.unidad)}</span></td>
         <td class="text-center">
           <span class="badge ${p.activo ? 'badge-activo' : 'badge-inactivo'}">${p.activo ? 'Activo' : 'Inactivo'}</span>
@@ -612,7 +625,7 @@ function abrirModalProducto(p = null) {
   $('#tituloModalProducto').textContent = p ? 'Editar producto' : 'Nuevo producto';
   $('#inpNombreProd').value = p?.nombre || '';
   $('#selUnidad').value = p?.unidad || 'Unidad';
-  $('#txtDescProd').value = p?.descripcion || '';
+  $('#inpProveedor').value = p?.proveedor || '';
   $('#chkActivo').checked = p ? !!p.activo : true;
   $('#lblActivo').textContent = (p ? !!p.activo : true) ? 'Activo' : 'Inactivo';
   $('#inpNombreProd').classList.remove('is-invalid');
@@ -628,9 +641,21 @@ $('#btnNuevoProductoEmpty').addEventListener('click', () => abrirModalProducto()
 
 $('#btnGuardarProducto').addEventListener('click', async () => {
   const nombre = $('#inpNombreProd').value.trim();
+  const proveedor = $('#inpProveedor').value.trim();
+  $('#inpNombreProd').classList.remove('is-invalid');
+  $('#inpProveedor').classList.remove('is-invalid');
+  
+  let ok = true;
   if (!nombre) {
     $('#inpNombreProd').classList.add('is-invalid');
-    toast('El nombre del producto es obligatorio', 'warning');
+    ok = false;
+  }
+  if (!proveedor) {
+    $('#inpProveedor').classList.add('is-invalid');
+    ok = false;
+  }
+  if (!ok) {
+    toast('Revisa los campos marcados en rojo', 'warning');
     return;
   }
   const btn = $('#btnGuardarProducto');
@@ -640,7 +665,7 @@ $('#btnGuardarProducto').addEventListener('click', async () => {
     const body = {
       nombre,
       unidad: $('#selUnidad').value,
-      descripcion: $('#txtDescProd').value.trim(),
+      proveedor: $('#inpProveedor').value.trim(),
       activo: $('#chkActivo').checked
     };
     if (state.productoEdit) {
@@ -1762,7 +1787,7 @@ function renderProductosMobile(lista) {
         <span class="badge ${p.activo ? 'badge-activo' : 'badge-inactivo'}">${p.activo ? 'Activo' : 'Inactivo'}</span>
       </div>
       <div class="pmc-body">
-        <div class="pmc-field"><label>Descripción</label><span>${esc(p.descripcion || '—')}</span></div>
+        <div class="pmc-field"><label>Proveedor</label><span>${esc(p.proveedor || '—')}</span></div>
         <div class="pmc-field"><label>Unidad</label><span><span class="badge badge-placa">${esc(p.unidad)}</span></span></div>
         <div class="pmc-field"><label>Movimientos</label><span class="badge badge-count">${p.total_registros}</span></div>
       </div>

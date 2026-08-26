@@ -1,7 +1,8 @@
-require('dotenv').config();
+require('dotenv').config({ path: require('path').join(__dirname, '..', '.env') });
 const path = require('path');
 const express = require('express');
 const cors = require('cors');
+const migrarProveedor = require('./config/migrate');
 
 const app = express();
 
@@ -25,6 +26,15 @@ app.use((err, _req, res, _next) => {
 });
 
 const PORT = process.env.PORT || 3000;
-app.listen(PORT, () => {
-  console.log(`Servidor corriendo en http://localhost:${PORT}`);
+
+// Ejecutar migraciones antes de iniciar el servidor
+migrarProveedor().then(() => {
+  app.listen(PORT, () => {
+    console.log(`Servidor corriendo en http://localhost:${PORT}`);
+  });
+}).catch(err => {
+  console.error('Error en migración:', err.message);
+  app.listen(PORT, () => {
+    console.log(`Servidor corriendo en http://localhost:${PORT} (sin migración)`);
+  });
 });

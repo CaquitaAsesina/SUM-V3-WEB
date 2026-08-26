@@ -24,7 +24,7 @@ CREATE TABLE productos (
   id             INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
   codigo         VARCHAR(20)  NULL UNIQUE,
   nombre         VARCHAR(120) NOT NULL,
-  descripcion    VARCHAR(255) NULL,
+  proveedor      VARCHAR(120) NULL,
   unidad         VARCHAR(30)  NOT NULL DEFAULT 'Unidad',
   activo         TINYINT(1)   NOT NULL DEFAULT 1,
   creado_en      DATETIME     NOT NULL DEFAULT CURRENT_TIMESTAMP,
