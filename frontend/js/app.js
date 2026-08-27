@@ -399,7 +399,7 @@ $('#formRegister')?.addEventListener('submit', async (e) => {
   btn.querySelector('.login-btn-loading').classList.remove('d-none');
 
   try {
-    const response = await api('/auth/register', {
+    await api('/auth/register', {
       method: 'POST',
       body: { usuario, contrasena, nombreCompleto: nombre }
     });
@@ -434,7 +434,12 @@ const state = {
   productoEdit: null,
   registroEdit: null,
   confirmAction: null,
-  exportando: false
+  exportando: false,
+  fechaDesde: '',
+  fechaHasta: '',
+  dashboardPeriodo: 'all',
+  dashboardTipo: 'TODOS',
+  dashData: null
 };
 
 /* ---------- helpers ---------- */
@@ -537,19 +542,6 @@ async function cargarProductos() {
   state.productos = await api('/productos');
   poblarSelects();
   renderProductos();
-  cargarProveedores();
-}
-
-async function cargarProveedores() {
-  try {
-    const proveedores = await api('/productos/proveedores');
-    const datalist = $('#listaProveedores');
-    if (datalist) {
-      datalist.innerHTML = proveedores.map(p => `<option value="${esc(p)}">`).join('');
-    }
-  } catch (err) {
-    console.error('Error cargando proveedores:', err);
-  }
 }
 
 function poblarSelects() {
@@ -590,9 +582,9 @@ function renderProductos() {
         <td><span class="badge badge-code">${esc(p.codigo)}</span></td>
         <td>
           <span class="prod-name">${esc(p.nombre)}</span><br>
-          <span class="prod-meta d-md-none">${esc(p.proveedor || 'Sin proveedor')}</span>
+          <span class="prod-meta d-md-none">${esc(p.observaciones || '—')}</span>
         </td>
-        <td class="d-none d-md-table-cell"><span class="text-muted-lila small">${esc(p.proveedor || '—')}</span></td>
+        <td class="d-none d-md-table-cell"><span class="text-muted-lila small">${esc(p.observaciones || '—')}</span></td>
         <td><span class="badge badge-placa">${esc(p.unidad)}</span></td>
         <td class="text-center">
           <span class="badge ${p.activo ? 'badge-activo' : 'badge-inactivo'}">${p.activo ? 'Activo' : 'Inactivo'}</span>
@@ -625,7 +617,7 @@ function abrirModalProducto(p = null) {
   $('#tituloModalProducto').textContent = p ? 'Editar producto' : 'Nuevo producto';
   $('#inpNombreProd').value = p?.nombre || '';
   $('#selUnidad').value = p?.unidad || 'Unidad';
-  $('#inpProveedor').value = p?.proveedor || '';
+  $('#inpObservaciones').value = p?.observaciones || '';
   $('#chkActivo').checked = p ? !!p.activo : true;
   $('#lblActivo').textContent = (p ? !!p.activo : true) ? 'Activo' : 'Inactivo';
   $('#inpNombreProd').classList.remove('is-invalid');
@@ -641,17 +633,11 @@ $('#btnNuevoProductoEmpty').addEventListener('click', () => abrirModalProducto()
 
 $('#btnGuardarProducto').addEventListener('click', async () => {
   const nombre = $('#inpNombreProd').value.trim();
-  const proveedor = $('#inpProveedor').value.trim();
   $('#inpNombreProd').classList.remove('is-invalid');
-  $('#inpProveedor').classList.remove('is-invalid');
   
   let ok = true;
   if (!nombre) {
     $('#inpNombreProd').classList.add('is-invalid');
-    ok = false;
-  }
-  if (!proveedor) {
-    $('#inpProveedor').classList.add('is-invalid');
     ok = false;
   }
   if (!ok) {
@@ -665,7 +651,7 @@ $('#btnGuardarProducto').addEventListener('click', async () => {
     const body = {
       nombre,
       unidad: $('#selUnidad').value,
-      proveedor: $('#inpProveedor').value.trim(),
+      observaciones: $('#inpObservaciones').value.trim(),
       activo: $('#chkActivo').checked
     };
     if (state.productoEdit) {
@@ -714,18 +700,73 @@ async function cargarRegistros() {
   $('#emptyRegistros').classList.add('d-none');
   state.registros = await api('/registros');
   renderRegistros();
+  cargarProveedores();
+}
+
+async function cargarProveedores() {
+  try {
+    const proveedores = await api('/registros/proveedores');
+    const datalist = $('#listaProveedores');
+    const datalistEdit = $('#listaProveedoresEdit');
+    if (datalist) {
+      datalist.innerHTML = proveedores.map(p => `<option value="${esc(p)}">`).join('');
+    }
+    if (datalistEdit) {
+      datalistEdit.innerHTML = proveedores.map(p => `<option value="${esc(p)}">`).join('');
+    }
+  } catch (err) {
+    console.error('Error cargando proveedores:', err);
+  }
 }
 
 function registrosFiltrados() {
   const q = state.busquedaReg.toLowerCase();
+  const desde = state.fechaDesde;
+  const hasta = state.fechaHasta;
   return state.registros.filter(r => {
     if (state.filtroTipo !== 'TODOS' && r.tipo !== state.filtroTipo) return false;
+    // Date range filter
+    if (desde || hasta) {
+      const fechaReg = String(r.fecha_hora).slice(0, 10);
+      if (desde && fechaReg < desde) return false;
+      if (hasta && fechaReg > hasta) return false;
+    }
     if (!q) return true;
-    return [r.codigo, r.placa, r.producto_nombre, r.numero_guia].some(v =>
+    return [r.codigo, r.placa, r.producto_nombre, r.numero_guia, r.proveedor].some(v =>
       String(v ?? '').toLowerCase().includes(q)
     );
   });
 }
+
+/* ---------- view registro modal ---------- */
+
+function abrirVerRegistro(r) {
+  const esEnt = r.tipo === 'ENTREGA';
+  $('#verRegistroIcon').innerHTML = `<i class="bi ${esEnt ? 'bi-truck' : 'bi-arrow-return-left'}"></i>`;
+  $('#verRegistroIcon').className = `rh-icon ${esEnt ? 'ent' : 'dev'}`;
+  $('#verRegistroTitle').textContent = esEnt ? 'Detalle de entrega' : 'Detalle de devolución';
+  $('#verRegistroCodigo').textContent = `Código ${r.codigo}`;
+  $('#verRegTipo').innerHTML = `<span class="badge ${esEnt ? 'badge-entrega' : 'badge-devolucion'}">${esEnt ? 'Entrega' : 'Devolución'}</span>`;
+  $('#verRegTipo').querySelector('.badge').style.cssText = '';
+  $('#verRegProducto').textContent = `${r.producto_nombre}`;
+  $('#verRegProdCodigo').textContent = r.producto_codigo;
+  $('#verRegUnidad').textContent = r.unidad;
+  $('#verRegCantidad').innerHTML = `<span class="cantidad-chip ${esEnt ? 'pos' : 'neg'}" style="font-size:1.1rem">${esEnt ? '+' : '−'}${r.cantidad}</span>`;
+  $('#verRegPlaca').textContent = r.placa;
+  $('#verRegGuia').textContent = r.numero_guia || '—';
+  $('#verRegProveedor').textContent = r.proveedor || 'Sin proveedor';
+  $('#verRegFecha').textContent = fmtFecha(r.fecha_hora);
+  // Store for edit button
+  state.verRegistroId = r.id;
+  bootstrap.Modal.getOrCreateInstance($('#modalVerRegistro')).show();
+}
+
+$('#btnVerRegistroEditar')?.addEventListener('click', () => {
+  const r = state.registros.find(x => x.id === state.verRegistroId);
+  if (!r) return;
+  bootstrap.Modal.getOrCreateInstance($('#modalVerRegistro')).hide();
+  setTimeout(() => abrirModalRegistro(r), 300);
+});
 
 function renderRegistros() {
   const total = state.registros.length;
@@ -758,7 +799,7 @@ function renderRegistros() {
         <td><span class="badge badge-code">${esc(r.codigo)}</span></td>
         <td><span class="badge ${r.tipo === 'ENTREGA' ? 'badge-entrega' : 'badge-devolucion'}">${r.tipo === 'ENTREGA' ? 'Entrega' : 'Devolución'}</span></td>
         <td>
-          <span class="prod-name">${esc(r.producto_nombre)}</span><br>
+          <span class="prod-name text-truncate-custom" title="${esc(r.producto_nombre)}">${esc(r.producto_nombre.length > 20 ? r.producto_nombre.slice(0, 18) + '…' : r.producto_nombre)}</span><br>
           <span class="prod-meta">${esc(r.producto_codigo)} · ${esc(r.unidad)}</span>
         </td>
         <td class="text-center">
@@ -766,8 +807,10 @@ function renderRegistros() {
         </td>
         <td><span class="badge badge-placa">${esc(r.placa)}</span></td>
         <td><span class="badge badge-code">${esc(r.numero_guia)}</span></td>
+        <td class="d-none d-md-table-cell"><span class="text-muted-lila small">${esc(r.proveedor || '—')}</span></td>
         <td><span class="small text-muted-lila" style="white-space:nowrap">${fmtFecha(r.fecha_hora)}</span></td>
         <td class="text-end text-nowrap">
+          <button class="btn-action btn-view-reg" data-action="view-registro" data-id="${r.id}" title="Ver detalle"><i class="bi bi-eye"></i></button>
           <button class="btn-action" data-action="edit-registro" data-id="${r.id}" title="Editar"><i class="bi bi-pencil-square"></i></button>
           <button class="btn-action danger" data-action="del-registro" data-id="${r.id}" title="Eliminar"><i class="bi bi-trash3"></i></button>
         </td>
@@ -786,6 +829,26 @@ function renderRegistros() {
 
 $('#inpBuscarRegistro').addEventListener('input', e => {
   state.busquedaReg = e.target.value;
+  renderRegistros();
+});
+
+// Date filter listeners
+$('#inpFechaDesde')?.addEventListener('input', e => {
+  state.fechaDesde = e.target.value;
+  $('#btnClearDates').style.display = (state.fechaDesde || state.fechaHasta) ? '' : 'none';
+  renderRegistros();
+});
+$('#inpFechaHasta')?.addEventListener('input', e => {
+  state.fechaHasta = e.target.value;
+  $('#btnClearDates').style.display = (state.fechaDesde || state.fechaHasta) ? '' : 'none';
+  renderRegistros();
+});
+$('#btnClearDates')?.addEventListener('click', () => {
+  state.fechaDesde = '';
+  state.fechaHasta = '';
+  $('#inpFechaDesde').value = '';
+  $('#inpFechaHasta').value = '';
+  $('#btnClearDates').style.display = 'none';
   renderRegistros();
 });
 
@@ -984,7 +1047,7 @@ $$('input[name="tipo"]').forEach(r => r.addEventListener('change', () => {
 $('#selProducto').addEventListener('change', actualizarHintDevolucion);
 
 function abrirRegistroNuevo() {
-  ['#selProducto', '#inpCantidad', '#inpPlaca', '#inpGuia'].forEach(s => $(s).classList.remove('is-invalid'));
+  ['#selProducto', '#inpCantidad', '#inpPlaca', '#inpGuia', '#inpProveedor'].forEach(s => $(s).classList.remove('is-invalid'));
   $('#formRegistro').reset();
   $('#tipoEntrega').checked = true;
   $('#hintTipo').innerHTML = hintsTipo.ENTREGA;
@@ -1021,7 +1084,7 @@ $('#formRegistro').addEventListener('submit', async e => {
   const inpGuia = $('#inpGuia');
   const guia = inpGuia.value.replace(/[\s.-]/g, '');
   inpGuia.classList.remove('is-invalid');
-  if (!/^\d{6,30}$/.test(guia)) { inpGuia.classList.add('is-invalid'); ok = false; }
+  if (!/^\d{4,30}$/.test(guia)) { inpGuia.classList.add('is-invalid'); ok = false; }
 
   // Validar stock para devoluciones
   if (tipo === 'DEVOLUCION' && ok && productoId) {
@@ -1047,7 +1110,8 @@ $('#formRegistro').addEventListener('submit', async e => {
         producto_id: productoId,
         cantidad,
         placa,
-        numero_guia: $('#inpGuia').value.replace(/[\s.-]/g, '')
+        numero_guia: $('#inpGuia').value.replace(/[\s.-]/g, ''),
+        proveedor: $('#inpProveedor').value.trim()
       }
     });
     toast(`Registro ${nuevo.codigo} guardado correctamente`);
@@ -1075,7 +1139,8 @@ function abrirModalRegistro(r) {
   $('#editCantidad').value = r.cantidad;
   $('#editPlaca').value = r.placa;
   $('#editGuia').value = r.numero_guia || '';
-  ['#editSelProducto', '#editCantidad', '#editPlaca', '#editGuia'].forEach(s => $(s).classList.remove('is-invalid'));
+  $('#editProveedor').value = r.proveedor || '';
+  ['#editSelProducto', '#editCantidad', '#editPlaca', '#editGuia', '#editProveedor'].forEach(s => $(s).classList.remove('is-invalid'));
   bootstrap.Modal.getOrCreateInstance($('#modalRegistroEdit')).show();
 }
 
@@ -1088,13 +1153,13 @@ $('#btnGuardarRegistroEdit').addEventListener('click', async () => {
   const placa = $('#editPlaca').value.trim().toUpperCase();
 
   let ok = true;
-  ['#editSelProducto', '#editCantidad', '#editPlaca', '#editGuia'].forEach(s => $(s).classList.remove('is-invalid'));
+  ['#editSelProducto', '#editCantidad', '#editPlaca', '#editGuia', '#editProveedor'].forEach(s => $(s).classList.remove('is-invalid'));
   if (!productoId) { $('#editSelProducto').classList.add('is-invalid'); ok = false; }
   if (!(cantidad >= 1)) { $('#editCantidad').classList.add('is-invalid'); ok = false; }
   if (!validarPlaca(placa)) { $('#editPlaca').classList.add('is-invalid'); ok = false; }
 
   const editGuia = $('#editGuia').value.replace(/[\s.-]/g, '');
-  if (!/^\d{6,30}$/.test(editGuia)) { $('#editGuia').classList.add('is-invalid'); ok = false; }
+  if (!/^\d{4,30}$/.test(editGuia)) { $('#editGuia').classList.add('is-invalid'); ok = false; }
 
   // Validar stock para devoluciones (excluir el registro actual)
   const editTipo = $('#editTipo').value;
@@ -1128,7 +1193,8 @@ $('#btnGuardarRegistroEdit').addEventListener('click', async () => {
         producto_id: productoId,
         cantidad,
         placa,
-        numero_guia: editGuia
+        numero_guia: editGuia,
+        proveedor: $('#editProveedor').value.trim()
       }
     });
     toast(`Registro ${r.codigo} actualizado`);
@@ -1151,7 +1217,11 @@ document.addEventListener('click', async e => {
   const id = Number(btn.dataset.id);
   const action = btn.dataset.action;
 
-  if (action === 'edit-producto') {
+  if (action === 'view-registro') {
+    const r = state.registros.find(x => x.id === id);
+    if (r) abrirVerRegistro(r);
+
+  } else if (action === 'edit-producto') {
     abrirModalProducto(state.productos.find(p => p.id === id));
 
   } else if (action === 'del-producto') {
@@ -1232,10 +1302,11 @@ document.addEventListener('click', async e => {
    ================================================================ */
 
 /* ── Referencias persistentes a las instancias Chart ──────────── */
-let _chartTendencia = null;
-let _chartDonut     = null;
-let _chartTop       = null;
-let _chartRadar     = null;
+let _chartTendencia   = null;
+let _chartDonut       = null;
+let _chartTop         = null;
+let _chartDiaSemana   = null;
+let _chartProveedores = null;
 
 /* ── Paleta consistente ───────────────────────────────────────── */
 const C = {
@@ -1284,6 +1355,49 @@ const _shortDate = iso => {
   return d.toLocaleDateString('es-PE', { day: '2-digit', month: 'short' });
 };
 
+/* ── Dashboard filter listeners ───────────────────────────────── */
+$$('.chip-filtro-dash[data-periodo]').forEach(chip => {
+  chip.addEventListener('click', () => {
+    $$('.chip-filtro-dash[data-periodo]').forEach(c => c.classList.remove('active'));
+    chip.classList.add('active');
+    state.dashboardPeriodo = chip.dataset.periodo;
+    if (state.dashData) renderDashboardFromData(state.dashData);
+  });
+});
+$$('.chip-filtro-dash[data-dash-tipo]').forEach(chip => {
+  chip.addEventListener('click', () => {
+    $$('.chip-filtro-dash[data-dash-tipo]').forEach(c => c.classList.remove('active'));
+    chip.classList.add('active');
+    state.dashboardTipo = chip.dataset.dashTipo;
+    if (state.dashData) renderDashboardFromData(state.dashData);
+  });
+});
+
+/* ── Filtrar registros por período ────────────────────────────── */
+function filtrarDashPorPeriodo(registros) {
+  if (state.dashboardPeriodo === 'all') return registros;
+  const hoy = new Date();
+  const isoHoy = hoy.toISOString().slice(0, 10);
+  let desde;
+  switch (state.dashboardPeriodo) {
+    case 'hoy':
+      desde = isoHoy;
+      break;
+    case '7d':
+      desde = new Date(hoy.getTime() - 7 * 86400000).toISOString().slice(0, 10);
+      break;
+    case '30d':
+      desde = new Date(hoy.getTime() - 30 * 86400000).toISOString().slice(0, 10);
+      break;
+    case 'mes':
+      desde = `${hoy.getFullYear()}-${String(hoy.getMonth() + 1).padStart(2, '0')}-01`;
+      break;
+    default:
+      return registros;
+  }
+  return registros.filter(r => String(r.fecha_hora).slice(0, 10) >= desde);
+}
+
 /* ── Función principal ────────────────────────────────────────── */
 async function cargarDashboard() {
   try {
@@ -1293,22 +1407,34 @@ async function cargarDashboard() {
         <div class="skel-row"><span class="skeleton w-25"></span><span class="skeleton flex-fill"></span><span class="skeleton w-15"></span></div>
         <div class="skel-row"><span class="skeleton w-25"></span><span class="skeleton flex-fill"></span><span class="skeleton w-15"></span></div>
       </div>`;
-    $('#listaActividad').innerHTML = `
-      <div class="skeleton-group">
-        <div class="skel-row"><span class="skeleton w-20"></span><span class="skeleton flex-fill"></span><span class="skeleton w-10"></span></div>
-        <div class="skel-row"><span class="skeleton w-20"></span><span class="skeleton flex-fill"></span><span class="skeleton w-10"></span></div>
-        <div class="skel-row"><span class="skeleton w-20"></span><span class="skeleton flex-fill"></span><span class="skeleton w-10"></span></div>
-      </div>`;
 
     const data = await api('/dashboard');
-    const { stats, productos, movimientosPorDia, topProductos, ultimosRegistros, radarData } = data;
+    state.dashData = data;
+    renderDashboardFromData(data);
+  } catch (err) {
+    toast(err.message, 'danger');
+  }
+}
 
-    const ent = _num(stats.unidadesEntregadas);
-    const dev = _num(stats.unidadesDevueltas);
-    const totalMovimientos = _num(stats.totalRegistros);
+/* ── Render dashboard from data with filters ─────────────────── */
+function renderDashboardFromData(data) {
+  try {
+    const { stats, productos, movimientosPorDia, topProductos, ultimosRegistros, topProveedores, movimientosPorDiaSemana, alertas } = data;
+
+    /* ── Filter registros by period for derived KPIs ────────────── */
+    const registrosRaw = state.registros || [];
+    const registrosPeriodo = filtrarDashPorPeriodo(registrosRaw);
+    const tipoFilter = state.dashboardTipo;
+
+    const ent = registrosPeriodo.filter(r => r.tipo === 'ENTREGA' && (tipoFilter === 'TODOS' || r.tipo === tipoFilter)).reduce((s, r) => s + Number(r.cantidad), 0);
+    const dev = registrosPeriodo.filter(r => r.tipo === 'DEVOLUCION' && (tipoFilter === 'TODOS' || r.tipo === tipoFilter)).reduce((s, r) => s + Number(r.cantidad), 0);
+    const totalMovimientos = registrosPeriodo.filter(r => tipoFilter === 'TODOS' || r.tipo === tipoFilter).length;
+
     const totalHoy = _num(stats.entregasHoy) + _num(stats.devolucionesHoy);
     const stockTotal = productos.reduce((s, p) => s + _num(p.stock), 0);
     const tasaDev = (ent + dev) > 0 ? Math.round((dev / (ent + dev)) * 100) : 0;
+    const eficiencia = ent > 0 ? Math.round(((ent - dev) / ent) * 100) : 0;
+    const numAlertas = alertas ? alertas.length : 0;
 
     /* ── KPI cards ────────────────────────────────────────────── */
     countUp($('#statProductos'), _num(stats.totalProductos));
@@ -1316,18 +1442,42 @@ async function cargarDashboard() {
     countUp($('#statEntregadas'), ent);
     countUp($('#statDevueltas'), dev);
     countUp($('#kpiStockTotal'), stockTotal);
+    $('#kpiEficiencia').textContent = eficiencia + '%';
     $('#kpiDevolucionPct').textContent = tasaDev + '%';
-    countUp($('#kpiTotalRegistros'), totalMovimientos);
+    countUp($('#kpiAlertas'), numAlertas);
 
-    /* ── 1. Tendencia 14 días (Área + Línea) ─────────────────── */
+    /* ── Filter movimientosPorDia by period ──────────────────── */
+    const hoyISO = new Date().toISOString().slice(0, 10);
+    let movFiltrados = movimientosPorDia || [];
+    if (state.dashboardPeriodo !== 'all') {
+      let desde;
+      switch (state.dashboardPeriodo) {
+        case 'hoy': desde = hoyISO; break;
+        case '7d': desde = new Date(Date.now() - 7 * 86400000).toISOString().slice(0, 10); break;
+        case '30d': desde = new Date(Date.now() - 30 * 86400000).toISOString().slice(0, 10); break;
+        case 'mes': desde = `${new Date().getFullYear()}-${String(new Date().getMonth() + 1).padStart(2, '0')}-01`; break;
+        default: desde = null;
+      }
+      if (desde) movFiltrados = movFiltrados.filter(d => d.fecha >= desde);
+    }
+    // Apply type filter to daily data
+    if (tipoFilter !== 'TODOS') {
+      movFiltrados = movFiltrados.map(d => ({
+        ...d,
+        entregas: tipoFilter === 'ENTREGA' ? _num(d.entregas) : 0,
+        devoluciones: tipoFilter === 'DEVOLUCION' ? _num(d.devoluciones) : 0
+      }));
+    }
+
+    /* ── 1. Tendencia (Área + Línea) ──────────────────────────── */
     _chartTendencia = _destroy(_chartTendencia);
-    const tendenciaEmpty = !movimientosPorDia || movimientosPorDia.length === 0;
+    const tendenciaEmpty = !movFiltrados || movFiltrados.length === 0;
     $('#emptyTendencia')?.classList.toggle('d-none', !tendenciaEmpty);
     const canvasT = $('#chartTendencia');
     if (canvasT) canvasT.parentElement.style.display = tendenciaEmpty ? 'none' : '';
 
     if (!tendenciaEmpty) {
-      const labels = movimientosPorDia.map(d => _shortDate(d.fecha));
+      const labels = movFiltrados.map(d => _shortDate(d.fecha));
       _chartTendencia = new Chart(_ctx('chartTendencia'), {
         type: 'line',
         data: {
@@ -1335,7 +1485,7 @@ async function cargarDashboard() {
           datasets: [
             {
               label: 'Entregas',
-              data: movimientosPorDia.map(d => _num(d.entregas)),
+              data: movFiltrados.map(d => _num(d.entregas)),
               borderColor: C.purple,
               backgroundColor: C.purpleL,
               fill: true,
@@ -1343,7 +1493,7 @@ async function cargarDashboard() {
             },
             {
               label: 'Devoluciones',
-              data: movimientosPorDia.map(d => _num(d.devoluciones)),
+              data: movFiltrados.map(d => _num(d.devoluciones)),
               borderColor: C.pink,
               backgroundColor: C.pinkL,
               fill: true,
@@ -1415,7 +1565,14 @@ async function cargarDashboard() {
 
     /* ── 3. Top 5 productos más movidos (Horizontal Bar) ──────── */
     _chartTop = _destroy(_chartTop);
-    const topEmpty = !topProductos || topProductos.length === 0;
+    // Apply type filter to top products
+    let topProdsFiltered = topProductos || [];
+    if (tipoFilter === 'ENTREGA') {
+      topProdsFiltered = topProdsFiltered.filter(p => _num(p.entregas) > 0).map(p => ({ ...p, totalMovido: _num(p.entregas), devoluciones: 0 }));
+    } else if (tipoFilter === 'DEVOLUCION') {
+      topProdsFiltered = topProdsFiltered.filter(p => _num(p.devoluciones) > 0).map(p => ({ ...p, totalMovido: _num(p.devoluciones), entregas: 0 }));
+    }
+    const topEmpty = topProdsFiltered.length === 0;
     $('#emptyTop')?.classList.toggle('d-none', !topEmpty);
     const canvasTop = $('#chartTopProductos');
     if (canvasTop) canvasTop.parentElement.style.display = topEmpty ? 'none' : '';
@@ -1424,17 +1581,17 @@ async function cargarDashboard() {
       _chartTop = new Chart(_ctx('chartTopProductos'), {
         type: 'bar',
         data: {
-          labels: topProductos.map(p => p.nombre.length > 18 ? p.nombre.slice(0, 16) + '…' : p.nombre),
+          labels: topProdsFiltered.map(p => p.nombre.length > 18 ? p.nombre.slice(0, 16) + '…' : p.nombre),
           datasets: [
             {
               label: 'Entregas',
-              data: topProductos.map(p => _num(p.entregas)),
+              data: topProdsFiltered.map(p => _num(p.entregas)),
               backgroundColor: C.purple,
               borderRadius: 6,
             },
             {
               label: 'Devoluciones',
-              data: topProductos.map(p => _num(p.devoluciones)),
+              data: topProdsFiltered.map(p => _num(p.devoluciones)),
               backgroundColor: C.pink,
               borderRadius: 6,
             }
@@ -1456,34 +1613,41 @@ async function cargarDashboard() {
       });
     }
 
-    /* ── 4. Radar de movimientos por producto ──────────────────── */
-    _chartRadar = _destroy(_chartRadar);
-    const radarEmpty = !radarData || radarData.length < 2;
-    $('#emptyRadar')?.classList.toggle('d-none', !radarEmpty);
-    const canvasR = $('#chartRadar');
-    if (canvasR) canvasR.parentElement.style.display = radarEmpty ? 'none' : '';
+    /* ── 4. Actividad por día de semana (Bar) ─────────────────── */
+    _chartDiaSemana = _destroy(_chartDiaSemana);
+    let diasSemData = movimientosPorDiaSemana || [];
+    if (tipoFilter === 'ENTREGA') {
+      diasSemData = diasSemData.map(d => ({ ...d, devoluciones: 0 }));
+    } else if (tipoFilter === 'DEVOLUCION') {
+      diasSemData = diasSemData.map(d => ({ ...d, entregas: 0 }));
+    }
+    const diasSemanaEmpty = diasSemData.length < 2;
+    $('#emptyDiaSemana')?.classList.toggle('d-none', !diasSemanaEmpty);
+    const canvasDia = $('#chartDiaSemana');
+    if (canvasDia) canvasDia.parentElement.style.display = diasSemanaEmpty ? 'none' : '';
 
-    if (!radarEmpty) {
-      _chartRadar = new Chart(_ctx('chartRadar'), {
-        type: 'radar',
+    if (!diasSemanaEmpty) {
+      const diasOrder = ['Domingo', 'Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes', 'Sábado'];
+      const diasData = diasOrder.map(dia => {
+        const found = diasSemData.find(d => d.dia === dia);
+        return found || { dia, entregas: 0, devoluciones: 0 };
+      });
+      _chartDiaSemana = new Chart(_ctx('chartDiaSemana'), {
+        type: 'bar',
         data: {
-          labels: radarData.map(d => d.nombre.length > 14 ? d.nombre.slice(0, 12) + '…' : d.nombre),
+          labels: ['Dom', 'Lun', 'Mar', 'Mié', 'Jue', 'Vie', 'Sáb'],
           datasets: [
             {
               label: 'Entregas',
-              data: radarData.map(d => _num(d.entregas)),
-              borderColor: C.purple,
-              backgroundColor: C.purpleL,
-              borderWidth: 2,
-              pointBackgroundColor: C.purple,
+              data: diasData.map(d => _num(d.entregas)),
+              backgroundColor: C.purple,
+              borderRadius: 4,
             },
             {
               label: 'Devoluciones',
-              data: radarData.map(d => _num(d.devoluciones)),
-              borderColor: C.pink,
-              backgroundColor: C.pinkL,
-              borderWidth: 2,
-              pointBackgroundColor: C.pink,
+              data: diasData.map(d => _num(d.devoluciones)),
+              backgroundColor: C.pink,
+              borderRadius: 4,
             }
           ]
         },
@@ -1491,22 +1655,75 @@ async function cargarDashboard() {
           responsive: true,
           maintainAspectRatio: false,
           plugins: {
-            legend: { display: true, position: 'top', labels: { usePointStyle: true, pointStyle: 'circle', padding: 16, font: { weight: '600', size: 12 } } }
+            legend: { display: true, position: 'top', labels: { usePointStyle: true, pointStyle: 'rect', padding: 16, font: { weight: '600', size: 12 } } },
+            tooltip: { callbacks: { label: ctx => `${ctx.dataset.label}: ${ctx.parsed.y} uds` } }
           },
           scales: {
-            r: {
-              beginAtZero: true,
-              grid: { color: 'rgba(0,0,0,.06)' },
-              angleLines: { color: 'rgba(0,0,0,.06)' },
-              pointLabels: { font: { size: 11, weight: '600' }, color: C.ink },
-              ticks: { display: false }
-            }
+            x: { grid: { display: false }, ticks: { font: { size: 11, weight: '600' } } },
+            y: { beginAtZero: true, grid: { color: 'rgba(0,0,0,.04)' }, ticks: { precision: 0, font: { size: 11 } } }
           }
         }
       });
     }
 
-    /* ── 5. Stock por producto (barras animadas) ───────────────── */
+    /* ── 5. Top proveedores (Doughnut) ─────────────────────────── */
+    _chartProveedores = _destroy(_chartProveedores);
+    let provFiltered = topProveedores || [];
+    if (tipoFilter === 'ENTREGA') {
+      provFiltered = provFiltered.filter(p => _num(p.entregas) > 0).map(p => ({ ...p, volumenTotal: _num(p.entregas), devoluciones: 0 }));
+    } else if (tipoFilter === 'DEVOLUCION') {
+      provFiltered = provFiltered.filter(p => _num(p.devoluciones) > 0).map(p => ({ ...p, volumenTotal: _num(p.devoluciones), entregas: 0 }));
+    }
+    const provEmpty = provFiltered.length === 0;
+    $('#emptyProveedores')?.classList.toggle('d-none', !provEmpty);
+    const canvasProv = $('#chartProveedores');
+    if (canvasProv) canvasProv.parentElement.style.display = provEmpty ? 'none' : '';
+
+    if (!provEmpty) {
+      const provColors = [C.purple, C.pink, C.green, C.amber, C.blue, C.red];
+      _chartProveedores = new Chart(_ctx('chartProveedores'), {
+        type: 'doughnut',
+        data: {
+          labels: provFiltered.map(p => p.proveedor.length > 15 ? p.proveedor.slice(0, 13) + '…' : p.proveedor),
+          datasets: [{
+            data: provFiltered.map(p => _num(p.volumenTotal)),
+            backgroundColor: provFiltered.map((_, i) => provColors[i % provColors.length]),
+            borderWidth: 0,
+            hoverOffset: 6,
+          }]
+        },
+        options: {
+          responsive: true,
+          maintainAspectRatio: false,
+          cutout: '55%',
+          plugins: {
+            legend: { display: true, position: 'right', labels: { usePointStyle: true, pointStyle: 'circle', padding: 12, font: { size: 11, weight: '600' } } },
+            tooltip: { callbacks: { label: ctx => `${ctx.label}: ${ctx.parsed.toLocaleString('es-PE')} uds` } }
+          }
+        }
+      });
+    }
+
+    /* ── 6. Alertas de stock bajo ──────────────────────────────── */
+    $('#rowAlertas').classList.toggle('d-none', numAlertas === 0);
+    if (numAlertas > 0) {
+      $('#listaAlertas').innerHTML = alertas.map((a, i) => {
+        const stock = _num(a.stock);
+        const clase = stock === 0 ? 'zero' : 'low';
+        return `
+          <div class="stock-row" style="--d:${Math.min(i * .05, .45)}s">
+            <div>
+              <span class="stock-name">${esc(a.nombre)}</span>
+              <span class="stock-meta">${esc(a.codigo)} · ${esc(a.unidad)}</span>
+            </div>
+            <div class="stock-nums">
+              <span class="num-total ${clase}" style="font-weight:700;font-size:1rem">${stock} <small>unidades</small></span>
+            </div>
+          </div>`;
+      }).join('');
+    }
+
+    /* ── 7. Stock por producto (barras animadas) ───────────────── */
     $('#emptyDash').classList.toggle('d-none', productos.length > 0);
     $('#listaStock').classList.toggle('d-none', productos.length === 0);
 
@@ -1539,11 +1756,33 @@ async function cargarDashboard() {
     }
 
     /* ── 6. Últimos movimientos (timeline) ────────────────────── */
-    $('#emptyActividad').classList.toggle('d-none', ultimosRegistros && ultimosRegistros.length > 0);
-    $('#listaActividad').classList.toggle('d-none', !ultimosRegistros || ultimosRegistros.length === 0);
+    let actFiltrada = ultimosRegistros || [];
+    if (state.dashboardPeriodo !== 'all') {
+      let desdeAct;
+      switch (state.dashboardPeriodo) {
+        case 'hoy': desdeAct = hoyISO; break;
+        case '7d': desdeAct = new Date(Date.now() - 7 * 86400000).toISOString().slice(0, 10); break;
+        case '30d': desdeAct = new Date(Date.now() - 30 * 86400000).toISOString().slice(0, 10); break;
+        case 'mes': desdeAct = `${new Date().getFullYear()}-${String(new Date().getMonth() + 1).padStart(2, '0')}-01`; break;
+        default: desdeAct = null;
+      }
+      // recent activity comes formatted, parse date from DD/MM/YYYY · HH:MM format
+      if (desdeAct) {
+        actFiltrada = actFiltrada.filter(r => {
+          // We need the raw date from the underlying registros
+          const raw = registrosPeriodo.find(rp => rp.codigo === r.codigo);
+          return raw && String(raw.fecha_hora).slice(0, 10) >= desdeAct;
+        });
+      }
+    }
+    if (tipoFilter !== 'TODOS') {
+      actFiltrada = actFiltrada.filter(r => r.tipo === tipoFilter);
+    }
+    $('#emptyActividad').classList.toggle('d-none', actFiltrada.length > 0);
+    $('#listaActividad').classList.toggle('d-none', actFiltrada.length === 0);
 
-    if (ultimosRegistros && ultimosRegistros.length > 0) {
-      $('#listaActividad').innerHTML = ultimosRegistros.map((r, i) => {
+    if (actFiltrada.length > 0) {
+      $('#listaActividad').innerHTML = actFiltrada.map((r, i) => {
         const isEnt = r.tipo === 'ENTREGA';
         return `
           <div class="activity-row" style="--d:${Math.min(i * .04, .35)}s">
@@ -1734,15 +1973,7 @@ $('#btnGuardarUsuario').addEventListener('click', async () => {
   }
 });
 
-/* ---------- responsive utilities ---------- */
-
-function isMobile() {
-  return window.innerWidth < 768;
-}
-
-function isTouch() {
-  return 'ontouchstart' in window || navigator.maxTouchPoints > 0;
-}
+/* ---------- mobile cards ---------- */
 
 // Mobile card rendering for registros
 function renderRegistrosMobile(lista) {
@@ -1754,7 +1985,7 @@ function renderRegistrosMobile(lista) {
           <i class="bi ${r.tipo === 'ENTREGA' ? 'bi-truck' : 'bi-arrow-return-left'}"></i>
         </div>
         <div class="rmc-title">
-          <span class="rmc-producto">${esc(r.producto_nombre)}</span>
+          <span class="rmc-producto" title="${esc(r.producto_nombre)}">${esc(r.producto_nombre.length > 20 ? r.producto_nombre.slice(0, 18) + '…' : r.producto_nombre)}</span>
           <span class="rmc-codigo"><i class="bi bi-hash"></i>${esc(r.codigo)}</span>
         </div>
         <span class="badge ${r.tipo === 'ENTREGA' ? 'badge-entrega' : 'badge-devolucion'}">${r.tipo === 'ENTREGA' ? 'Entrega' : 'Devolución'}</span>
@@ -1764,9 +1995,11 @@ function renderRegistrosMobile(lista) {
         <div class="rmc-field"><label>Cantidad</label><span class="cantidad-chip ${r.tipo === 'ENTREGA' ? 'pos' : 'neg'}">${r.tipo === 'ENTREGA' ? '+' : '−'}${r.cantidad} ${esc(r.unidad)}</span></div>
         <div class="rmc-field"><label>Placa</label><span>${esc(r.placa)}</span></div>
         <div class="rmc-field"><label>N° Guía</label><span>${esc(r.numero_guia)}</span></div>
+        <div class="rmc-field"><label>Proveedor</label><span>${esc(r.proveedor || '—')}</span></div>
         <div class="rmc-field"><label>Fecha</label><span>${fmtFecha(r.fecha_hora)}</span></div>
       </div>
       <div class="rmc-actions">
+        <button class="btn-action btn-view-reg" data-action="view-registro" data-id="${r.id}" title="Ver detalle"><i class="bi bi-eye"></i></button>
         <button class="btn-action" data-action="edit-registro" data-id="${r.id}" title="Editar"><i class="bi bi-pencil-square"></i></button>
         <button class="btn-action danger" data-action="del-registro" data-id="${r.id}" title="Eliminar"><i class="bi bi-trash3"></i></button>
       </div>
@@ -1781,13 +2014,13 @@ function renderProductosMobile(lista) {
       <div class="pmc-header">
         <div class="pmc-icon"><i class="bi bi-box-seam"></i></div>
         <div class="pmc-info">
-          <span class="pmc-name">${esc(p.nombre)}</span>
+          <span class="pmc-name" title="${esc(p.nombre)}">${esc(p.nombre.length > 20 ? p.nombre.slice(0, 18) + '…' : p.nombre)}</span>
           <span class="pmc-code"><i class="bi bi-hash"></i>${esc(p.codigo)}</span>
         </div>
         <span class="badge ${p.activo ? 'badge-activo' : 'badge-inactivo'}">${p.activo ? 'Activo' : 'Inactivo'}</span>
       </div>
       <div class="pmc-body">
-        <div class="pmc-field"><label>Proveedor</label><span>${esc(p.proveedor || '—')}</span></div>
+        <div class="pmc-field"><label>Observaciones</label><span>${esc(p.observaciones || '—')}</span></div>
         <div class="pmc-field"><label>Unidad</label><span><span class="badge badge-placa">${esc(p.unidad)}</span></span></div>
         <div class="pmc-field"><label>Movimientos</label><span class="badge badge-count">${p.total_registros}</span></div>
       </div>

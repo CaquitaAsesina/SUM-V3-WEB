@@ -382,6 +382,15 @@
             <i class="bi bi-search"></i>
             <input id="inpBuscarRegistro" placeholder="Buscar por código, producto o placa…" autocomplete="off">
           </div>
+          <div class="date-filter-group">
+            <label class="date-filter-label"><i class="bi bi-calendar-event"></i> Desde</label>
+            <input type="date" id="inpFechaDesde" class="date-filter-input">
+            <label class="date-filter-label">Hasta</label>
+            <input type="date" id="inpFechaHasta" class="date-filter-input">
+            <button type="button" class="btn-clear-dates" id="btnClearDates" title="Limpiar fechas" style="display:none">
+              <i class="bi bi-x-circle"></i>
+            </button>
+          </div>
           <div class="chips-filtro" role="group" aria-label="Filtrar por tipo">
             <button type="button" class="chip-filtro active" data-filtro="TODOS">Todos</button>
             <button type="button" class="chip-filtro" data-filtro="ENTREGA">Entregas</button>
@@ -420,6 +429,7 @@
                 <th class="text-center">Cant.</th>
                 <th>Placa</th>
                 <th>N° Guía</th>
+                <th class="d-none d-md-table-cell">Proveedor</th>
                 <th>Fecha y hora</th>
                 <th class="text-end">Acciones</th>
               </tr>
@@ -476,7 +486,7 @@
               <tr>
                 <th>Código</th>
                 <th>Producto</th>
-                <th class="d-none d-md-table-cell">Proveedor</th>
+                <th class="d-none d-md-table-cell">Observaciones</th>
                 <th>Unidad</th>
                 <th class="text-center">Estado</th>
                 <th class="d-none d-lg-table-cell text-center">Movimientos</th>
@@ -501,7 +511,29 @@
             class="bi bi-arrow-clockwise"></i></button>
       </div>
 
-      <!-- ═══ KPI Row ═══ -->
+      <!-- ═══ Period Filter Bar ═══ -->
+      <div class="dash-filter-bar reveal" style="--d:.02s">
+        <div class="dash-filter-group">
+          <span class="dash-filter-label"><i class="bi bi-calendar3"></i> Período</span>
+          <div class="chips-filtro" role="group" aria-label="Filtrar por período">
+            <button type="button" class="chip-filtro-dash active" data-periodo="all">Todo</button>
+            <button type="button" class="chip-filtro-dash" data-periodo="hoy">Hoy</button>
+            <button type="button" class="chip-filtro-dash" data-periodo="7d">7 días</button>
+            <button type="button" class="chip-filtro-dash" data-periodo="30d">30 días</button>
+            <button type="button" class="chip-filtro-dash" data-periodo="mes">Este mes</button>
+          </div>
+        </div>
+        <div class="dash-filter-group">
+          <span class="dash-filter-label"><i class="bi bi-funnel"></i> Tipo</span>
+          <div class="chips-filtro" role="group" aria-label="Filtrar por tipo">
+            <button type="button" class="chip-filtro-dash active" data-dash-tipo="TODOS">Todos</button>
+            <button type="button" class="chip-filtro-dash" data-dash-tipo="ENTREGA">Entregas</button>
+            <button type="button" class="chip-filtro-dash" data-dash-tipo="DEVOLUCION">Devoluciones</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- ═══ KPI Row Principal ═══ -->
       <div class="row g-3 g-xl-4">
         <div class="col-6 col-lg-3">
           <div class="stat-card tilt-card reveal" style="--d:.02s">
@@ -512,67 +544,92 @@
         </div>
         <div class="col-6 col-lg-3">
           <div class="stat-card tilt-card reveal" style="--d:.08s">
-            <div class="stat-icon grad-b"><i class="bi bi-calendar2-day"></i></div>
-            <span class="stat-value" id="statHoy">0</span>
-            <span class="stat-label">Movimientos hoy</span>
-          </div>
-        </div>
-        <div class="col-6 col-lg-3">
-          <div class="stat-card tilt-card reveal" style="--d:.14s">
             <div class="stat-icon grad-c"><i class="bi bi-truck"></i></div>
             <span class="stat-value pos" id="statEntregadas">0</span>
             <span class="stat-label">Unidades entregadas</span>
           </div>
         </div>
         <div class="col-6 col-lg-3">
-          <div class="stat-card tilt-card reveal" style="--d:.20s">
+          <div class="stat-card tilt-card reveal" style="--d:.14s">
             <div class="stat-icon grad-d"><i class="bi bi-arrow-return-left"></i></div>
             <span class="stat-value neg" id="statDevueltas">0</span>
             <span class="stat-label">Unidades devueltas</span>
           </div>
         </div>
+        <div class="col-6 col-lg-3">
+          <div class="stat-card tilt-card reveal" style="--d:.20s">
+            <div class="stat-icon grad-b"><i class="bi bi-calendar2-day"></i></div>
+            <span class="stat-value" id="statHoy">0</span>
+            <span class="stat-label">Movimientos hoy</span>
+          </div>
+        </div>
       </div>
 
-      <!-- ═══ Second KPI row: Control indicators ═══ -->
+      <!-- ═══ KPI Row Secundario: Eficiencia y Alertas ═══ -->
       <div class="row g-3 g-xl-4 mt-1">
-        <div class="col-12 col-md-4">
+        <div class="col-12 col-md-3">
           <div class="control-kpi reveal" style="--d:.06s">
             <div class="ckpi-icon"><i class="bi bi-graph-up-arrow"></i></div>
             <div class="ckpi-body">
               <span class="ckpi-value" id="kpiStockTotal">0</span>
-              <span class="ckpi-label">Stock total en sistema</span>
+              <span class="ckpi-label">Stock total</span>
             </div>
           </div>
         </div>
-        <div class="col-12 col-md-4">
-          <div class="control-kpi reveal" style="--d:.12s">
+        <div class="col-12 col-md-3">
+          <div class="control-kpi reveal" style="--d:.10s">
+            <div class="ckpi-icon info"><i class="bi bi-speedometer2"></i></div>
+            <div class="ckpi-body">
+              <span class="ckpi-value" id="kpiEficiencia">0%</span>
+              <span class="ckpi-label">Eficiencia neta</span>
+            </div>
+          </div>
+        </div>
+        <div class="col-12 col-md-3">
+          <div class="control-kpi reveal" style="--d:.14s">
             <div class="ckpi-icon warn"><i class="bi bi-arrow-return-left"></i></div>
             <div class="ckpi-body">
               <span class="ckpi-value" id="kpiDevolucionPct">0%</span>
-              <span class="ckpi-label">Tasa de devolución</span>
+              <span class="ckpi-label">Tasa devolución</span>
             </div>
           </div>
         </div>
-        <div class="col-12 col-md-4">
+        <div class="col-12 col-md-3">
           <div class="control-kpi reveal" style="--d:.18s">
-            <div class="ckpi-icon info"><i class="bi bi-receipt"></i></div>
+            <div class="ckpi-icon danger"><i class="bi bi-exclamation-triangle"></i></div>
             <div class="ckpi-body">
-              <span class="ckpi-value" id="kpiTotalRegistros">0</span>
-              <span class="ckpi-label">Total de registros</span>
+              <span class="ckpi-value" id="kpiAlertas">0</span>
+              <span class="ckpi-label">Stock bajo</span>
             </div>
           </div>
         </div>
       </div>
 
-      <!-- ═══ Charts Row 1: Trend + Donut ═══ -->
+      <!-- ═══ Alertas de stock bajo ═══ -->
+      <div class="row g-3 g-xl-4 mt-1 d-none" id="rowAlertas">
+        <div class="col-12">
+          <div class="card-app reveal" style="--d:.08s">
+            <div class="card-app-head">
+              <div class="ca-icon" style="background:linear-gradient(135deg,#fef3c7,#fde68a);color:#d97706;"><i class="bi bi-exclamation-triangle"></i></div>
+              <div class="flex-grow-1">
+                <h3>Alertas de stock bajo</h3>
+                <p>Productos con 5 o menos unidades disponibles</p>
+              </div>
+            </div>
+            <div id="listaAlertas"></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- ═══ Charts Row 1: Tendencia + Distribución por día ═══ -->
       <div class="row g-3 g-xl-4 mt-1">
-        <div class="col-12 col-lg-7">
+        <div class="col-12 col-lg-8">
           <div class="card-app h-100 reveal" style="--d:.10s">
             <div class="card-app-head">
               <div class="ca-icon grad-a"><i class="bi bi-graph-up"></i></div>
               <div class="flex-grow-1">
-                <h3>Movimientos últimos 14 días</h3>
-                <p>Tendencia diaria de entregas y devoluciones</p>
+                <h3>Tendencia de movimientos</h3>
+                <p>Últimos 14 días: entregas vs devoluciones</p>
               </div>
             </div>
             <div class="chart-container chart-tall">
@@ -585,13 +642,13 @@
             </div>
           </div>
         </div>
-        <div class="col-12 col-lg-5">
+        <div class="col-12 col-lg-4">
           <div class="card-app h-100 reveal" style="--d:.16s">
             <div class="card-app-head">
               <div class="ca-icon grad-c"><i class="bi bi-pie-chart"></i></div>
               <div class="flex-grow-1">
-                <h3>Distribución de unidades</h3>
-                <p>Proporción entregas vs devoluciones</p>
+                <h3>Ratio entregas/devoluciones</h3>
+                <p>Distribución global</p>
               </div>
             </div>
             <div class="chart-container chart-donut">
@@ -605,15 +662,15 @@
         </div>
       </div>
 
-      <!-- ═══ Charts Row 2: Bar by product + Radar ═══ -->
+      <!-- ═══ Charts Row 2: Top productos + Actividad por día ═══ -->
       <div class="row g-3 g-xl-4 mt-1">
         <div class="col-12 col-lg-6">
           <div class="card-app h-100 reveal" style="--d:.10s">
             <div class="card-app-head">
-              <div class="ca-icon grad-b"><i class="bi bi-bar-chart-line"></i></div>
+              <div class="ca-icon grad-b"><i class="bi bi-trophy"></i></div>
               <div class="flex-grow-1">
                 <h3>Top productos más movidos</h3>
-                <p>Los 5 productos con mayor rotación</p>
+                <p>Ranking por volumen total</p>
               </div>
             </div>
             <div class="chart-container chart-tall">
@@ -629,33 +686,52 @@
         <div class="col-12 col-lg-6">
           <div class="card-app h-100 reveal" style="--d:.16s">
             <div class="card-app-head">
-              <div class="ca-icon grad-d"><i class="bi bi-bullseye"></i></div>
+              <div class="ca-icon grad-d"><i class="bi bi-calendar-week"></i></div>
               <div class="flex-grow-1">
-                <h3>Radar de movimientos</h3>
-                <p>Volumen por producto comparativo</p>
+                <h3>Actividad por día de semana</h3>
+                <p>Patrón de demanda semanal</p>
               </div>
             </div>
-            <div class="chart-container chart-radar">
-              <canvas id="chartRadar"></canvas>
+            <div class="chart-container chart-tall">
+              <canvas id="chartDiaSemana"></canvas>
             </div>
-            <div class="empty-state d-none py-4" id="emptyRadar" role="status">
-              <div class="es-icon sm"><i class="bi bi-bullseye"></i></div>
+            <div class="empty-state d-none py-4" id="emptyDiaSemana" role="status">
+              <div class="es-icon sm"><i class="bi bi-calendar-week"></i></div>
               <h4>Sin datos</h4>
-              <p>Se necesitan al menos 2 productos con movimientos.</p>
+              <p>Necesitas registros de al menos 2 días diferentes.</p>
             </div>
           </div>
         </div>
       </div>
 
-      <!-- ═══ Stock detail + Recent activity ═══ -->
+      <!-- ═══ Charts Row 3: Proveedores + Stock ═══ -->
       <div class="row g-3 g-xl-4 mt-1">
-        <div class="col-12 col-lg-6">
-          <div class="card-app h-100 card-table reveal" style="--d:.10s">
+        <div class="col-12 col-lg-5">
+          <div class="card-app h-100 reveal" style="--d:.10s">
             <div class="card-app-head">
-              <div class="ca-icon grad-a"><i class="bi bi-layers-half"></i></div>
+              <div class="ca-icon grad-a"><i class="bi bi-people"></i></div>
+              <div class="flex-grow-1">
+                <h3>Top proveedores</h3>
+                <p>Por volumen de movimientos</p>
+              </div>
+            </div>
+            <div class="chart-container chart-tall">
+              <canvas id="chartProveedores"></canvas>
+            </div>
+            <div class="empty-state d-none py-4" id="emptyProveedores" role="status">
+              <div class="es-icon sm"><i class="bi bi-people"></i></div>
+              <h4>Sin proveedores</h4>
+              <p>Registra movimientos con proveedor para ver el análisis.</p>
+            </div>
+          </div>
+        </div>
+        <div class="col-12 col-lg-7">
+          <div class="card-app h-100 card-table reveal" style="--d:.16s">
+            <div class="card-app-head">
+              <div class="ca-icon grad-b"><i class="bi bi-layers-half"></i></div>
               <div class="flex-grow-1">
                 <h3>Stock por producto</h3>
-                <p>Estado actual del inventario</p>
+                <p>Inventario actual del sistema</p>
               </div>
             </div>
             <div id="listaStock"></div>
@@ -666,7 +742,11 @@
             </div>
           </div>
         </div>
-        <div class="col-12 col-lg-6">
+      </div>
+
+      <!-- ═══ Recent activity ═══ -->
+      <div class="row g-3 g-xl-4 mt-1">
+        <div class="col-12 col-lg-12">
           <div class="card-app h-100 reveal" style="--d:.16s">
             <div class="card-app-head">
               <div class="ca-icon grad-c"><i class="bi bi-clock-history"></i></div>
@@ -812,10 +892,16 @@
                   maxlength="7" autocomplete="off" spellcheck="false">
                 <div class="invalid-feedback">Formato inválido. Ejemplo: <b>ABC-123</b>.</div>
               </div>
-              <div class="col-12 fx-item" style="--d:.37s">
+              <div class="col-12 col-md-6 fx-item" style="--d:.37s">
                 <label class="form-label" for="inpGuia">Número de guía</label>
                 <input type="text" class="form-control fw-semibold" id="inpGuia" placeholder="Ej. 119922884456" maxlength="30" inputmode="numeric" autocomplete="off" spellcheck="false">
-                <div class="invalid-feedback">Obligatorio: solo dígitos, entre 6 y 30.</div>
+                <div class="invalid-feedback">Obligatorio: solo dígitos, entre 4 y 30.</div>
+              </div>
+              <div class="col-12 col-md-6 fx-item" style="--d:.40s">
+                <label class="form-label" for="inpProveedor">Proveedor</label>
+                <input type="text" class="form-control" id="inpProveedor" list="listaProveedores"
+                  maxlength="120" placeholder="Ej. PACSE, Distribuidora XYZ…">
+                <datalist id="listaProveedores"></datalist>
               </div>
             </div>
 
@@ -876,11 +962,9 @@
                 </div>
               </div>
               <div class="col-12">
-                <label class="form-label" for="inpProveedor">Proveedor</label>
-                <input type="text" class="form-control" id="inpProveedor" list="listaProveedores"
-                  maxlength="120" placeholder="Ej. PACSE, Distribuidora XYZ…" required>
-                <div class="invalid-feedback">El proveedor es obligatorio.</div>
-                <datalist id="listaProveedores"></datalist>
+                <label class="form-label" for="inpObservaciones">Observaciones</label>
+                <textarea class="form-control" id="inpObservaciones"
+                  maxlength="250" placeholder="Notas adicionales sobre el producto…" rows="2"></textarea>
               </div>
             </div>
           </form>
@@ -890,6 +974,67 @@
           <button type="button" class="btn btn-gradient" id="btnGuardarProducto">
             <span class="spinner-border spinner-border-sm d-none me-2"></span>
             <i class="bi bi-check2 me-1 btn-ico"></i>Guardar
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="modal fade" id="modalVerRegistro" tabindex="-1" aria-hidden="true" aria-labelledby="verRegistroTitle" aria-modal="true">
+    <div class="modal-dialog modal-dialog-centered modal-lg">
+      <div class="modal-content modal-app fx-pop">
+        <div class="reg-hero reg-hero-detail">
+          <div class="rh-icon" id="verRegistroIcon"><i class="bi bi-journal-text"></i></div>
+          <div class="flex-grow-1">
+            <h5 id="verRegistroTitle">Detalle del registro</h5>
+            <small id="verRegistroCodigo">—</small>
+          </div>
+          <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Cerrar"></button>
+        </div>
+        <div class="modal-body pt-4">
+          <div class="ver-registro-grid">
+            <div class="ver-reg-field">
+              <span class="ver-reg-label">Tipo de movimiento</span>
+              <span class="ver-reg-value" id="verRegTipo">—</span>
+            </div>
+            <div class="ver-reg-field">
+              <span class="ver-reg-label">Producto</span>
+              <span class="ver-reg-value" id="verRegProducto">—</span>
+            </div>
+            <div class="ver-reg-field">
+              <span class="ver-reg-label">Código producto</span>
+              <span class="ver-reg-value" id="verRegProdCodigo">—</span>
+            </div>
+            <div class="ver-reg-field">
+              <span class="ver-reg-label">Unidad</span>
+              <span class="ver-reg-value" id="verRegUnidad">—</span>
+            </div>
+            <div class="ver-reg-field">
+              <span class="ver-reg-label">Cantidad</span>
+              <span class="ver-reg-value" id="verRegCantidad">—</span>
+            </div>
+            <div class="ver-reg-field">
+              <span class="ver-reg-label">Placa del vehículo</span>
+              <span class="ver-reg-value mono" id="verRegPlaca">—</span>
+            </div>
+            <div class="ver-reg-field">
+              <span class="ver-reg-label">Número de guía</span>
+              <span class="ver-reg-value mono" id="verRegGuia">—</span>
+            </div>
+            <div class="ver-reg-field">
+              <span class="ver-reg-label">Proveedor</span>
+              <span class="ver-reg-value" id="verRegProveedor">—</span>
+            </div>
+            <div class="ver-reg-field ver-reg-full">
+              <span class="ver-reg-label">Fecha y hora de registro</span>
+              <span class="ver-reg-value" id="verRegFecha">—</span>
+            </div>
+          </div>
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-ghost" data-bs-dismiss="modal">Cerrar</button>
+          <button type="button" class="btn btn-gradient" id="btnVerRegistroEditar">
+            <i class="bi bi-pencil-square me-2 btn-ico"></i>Editar
           </button>
         </div>
       </div>
@@ -939,7 +1084,13 @@
                 <label class="form-label" for="editGuia">Número de guía</label>
                 <input type="text" class="form-control fw-semibold" id="editGuia" maxlength="30" inputmode="numeric"
                   autocomplete="off" spellcheck="false">
-                <div class="invalid-feedback">Obligatorio: solo dígitos, entre 6 y 30.</div>
+                <div class="invalid-feedback">Obligatorio: solo dígitos, entre 4 y 30.</div>
+              </div>
+              <div class="col-12 col-md-6">
+                <label class="form-label" for="editProveedor">Proveedor</label>
+                <input type="text" class="form-control" id="editProveedor" list="listaProveedoresEdit"
+                  maxlength="120" placeholder="Ej. PACSE, Distribuidora XYZ…">
+                <datalist id="listaProveedoresEdit"></datalist>
               </div>
             </div>
             <p class="hint-auto mt-3 mb-0"><i class="bi bi-lock"></i> La fecha y hora original se mantienen intactas.

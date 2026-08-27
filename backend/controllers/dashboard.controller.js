@@ -54,7 +54,7 @@ exports.resumen = async (_req, res) => {
 
     /* ── Últimos 8 registros ──────────────────────────── */
     const [ultimosRegistros] = await db.query(`
-      SELECT r.codigo, r.tipo, r.cantidad, r.placa,
+      SELECT r.codigo, r.tipo, r.cantidad, r.placa, r.proveedor,
              DATE_FORMAT(r.fecha_hora, '%d/%m/%Y · %h:%i %p') AS fecha,
              p.nombre AS producto
         FROM registros r
@@ -62,18 +62,41 @@ exports.resumen = async (_req, res) => {
        ORDER BY r.fecha_hora DESC
        LIMIT 8`);
 
-    /* ── Movimientos por producto para el radar ────────── */
-    const [radarData] = await db.query(`
-      SELECT p.nombre,
-             COALESCE(SUM(IF(r.tipo='ENTREGA',r.cantidad,0)),0) AS entregas,
-             COALESCE(SUM(IF(r.tipo='DEVOLUCION',r.cantidad,0)),0) AS devoluciones
+    /* ── Top proveedores por volumen ─────────────────── */
+    const [topProveedores] = await db.query(`
+      SELECT proveedor,
+             COUNT(*) AS totalMovimientos,
+             SUM(IF(tipo='ENTREGA',cantidad,0)) AS entregas,
+             SUM(IF(tipo='DEVOLUCION',cantidad,0)) AS devoluciones,
+             SUM(cantidad) AS volumenTotal
+        FROM registros
+       WHERE proveedor IS NOT NULL AND proveedor != ''
+       GROUP BY proveedor
+       ORDER BY volumenTotal DESC
+       LIMIT 6`);
+
+    /* ── Movimientos por día de semana ───────────────── */
+    const [movimientosPorDiaSemana] = await db.query(`
+      SELECT DAYNAME(fecha_hora) AS dia,
+             DAYOFWEEK(fecha_hora) AS diaNum,
+             SUM(IF(tipo='ENTREGA',cantidad,0)) AS entregas,
+             SUM(IF(tipo='DEVOLUCION',cantidad,0)) AS devoluciones,
+             COUNT(*) AS total
+        FROM registros
+       GROUP BY DAYOFWEEK(fecha_hora), DAYNAME(fecha_hora)
+       ORDER BY diaNum ASC`);
+
+    /* ── Productos con stock bajo (alertas) ──────────── */
+    const [alertas] = await db.query(`
+      SELECT p.nombre, p.codigo, p.unidad,
+             COALESCE(SUM(IF(r.tipo='ENTREGA',r.cantidad,IF(r.tipo='DEVOLUCION',-r.cantidad,0))),0) AS stock
         FROM productos p
         LEFT JOIN registros r ON r.producto_id = p.id
        WHERE p.activo = 1
-       GROUP BY p.id, p.nombre
-       HAVING (entregas + devoluciones) > 0
-       ORDER BY (entregas + devoluciones) DESC
-       LIMIT 6`);
+       GROUP BY p.id, p.nombre, p.codigo, p.unidad
+       HAVING stock <= 5
+       ORDER BY stock ASC
+       LIMIT 5`);
 
     res.json({
       stats,
@@ -81,7 +104,9 @@ exports.resumen = async (_req, res) => {
       movimientosPorDia,
       topProductos,
       ultimosRegistros,
-      radarData
+      topProveedores,
+      movimientosPorDiaSemana,
+      alertas
     });
   } catch (err) {
     console.error('dashboard.resumen:', err.message);

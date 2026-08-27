@@ -24,7 +24,7 @@ CREATE TABLE productos (
   id             INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
   codigo         VARCHAR(20)  NULL UNIQUE,
   nombre         VARCHAR(120) NOT NULL,
-  proveedor      VARCHAR(120) NULL,
+  observaciones  VARCHAR(250) NULL,
   unidad         VARCHAR(30)  NOT NULL DEFAULT 'Unidad',
   activo         TINYINT(1)   NOT NULL DEFAULT 1,
   creado_en      DATETIME     NOT NULL DEFAULT CURRENT_TIMESTAMP,
@@ -46,6 +46,7 @@ CREATE TABLE registros (
   cantidad    INT UNSIGNED NOT NULL,
   placa       VARCHAR(8)   NOT NULL,
   numero_guia VARCHAR(30)  NOT NULL DEFAULT '',
+  proveedor   VARCHAR(120) NULL,
   fecha_hora  DATETIME     NOT NULL DEFAULT CURRENT_TIMESTAMP,
   CONSTRAINT fk_registro_producto
     FOREIGN KEY (producto_id) REFERENCES productos(id)

@@ -20,7 +20,7 @@ exports.listar = async (_req, res) => {
   try {
     const [rows] = await db.query(`
       SELECT r.id, r.codigo, r.tipo, r.producto_id, r.cantidad, r.placa,
-             r.numero_guia, r.fecha_hora,
+             r.numero_guia, r.proveedor, r.fecha_hora,
              p.nombre AS producto_nombre, p.codigo AS producto_codigo, p.unidad
         FROM registros r
         JOIN productos p ON p.id = r.producto_id
@@ -30,6 +30,18 @@ exports.listar = async (_req, res) => {
   } catch (err) {
     console.error('registros.listar:', err.message);
     res.status(500).json({ error: 'Error al obtener los registros' });
+  }
+};
+
+exports.proveedores = async (_req, res) => {
+  try {
+    const [rows] = await db.query(
+      `SELECT DISTINCT proveedor FROM registros WHERE proveedor IS NOT NULL AND proveedor != '' ORDER BY proveedor`
+    );
+    res.json(rows.map(r => r.proveedor));
+  } catch (err) {
+    console.error('registros.proveedores:', err.message);
+    res.status(500).json({ error: 'Error al obtener los proveedores' });
   }
 };
 
@@ -77,11 +89,16 @@ async function validarDatos(conn, body, excludeId = null) {
   }
 
   const numeroGuia = String(body?.numero_guia ?? '').replace(/[\s.-]/g, '');
-  if (!/^\d{6,30}$/.test(numeroGuia)) {
-    return { error: 'El número de guía es obligatorio: solo dígitos, entre 6 y 30' };
+  if (!/^\d{4,30}$/.test(numeroGuia)) {
+    return { error: 'El número de guía es obligatorio: solo dígitos, entre 4 y 30' };
   }
 
-  return { tipo, productoId, cantidad, placa, numeroGuia };
+  const proveedor = String(body?.proveedor ?? '').trim();
+  if (proveedor.length > 120) {
+    return { error: 'El nombre del proveedor es demasiado largo' };
+  }
+
+  return { tipo, productoId, cantidad, placa, numeroGuia, proveedor: proveedor || null };
 }
 
 exports.crear = async (req, res) => {
@@ -92,9 +109,9 @@ exports.crear = async (req, res) => {
 
     await conn.beginTransaction();
     const [ins] = await conn.execute(
-      `INSERT INTO registros (tipo, producto_id, cantidad, placa, numero_guia)
-       VALUES (?, ?, ?, ?, ?)`,
-      [datos.tipo, datos.productoId, datos.cantidad, datos.placa, datos.numeroGuia]
+      `INSERT INTO registros (tipo, producto_id, cantidad, placa, numero_guia, proveedor)
+       VALUES (?, ?, ?, ?, ?, ?)`,
+      [datos.tipo, datos.productoId, datos.cantidad, datos.placa, datos.numeroGuia, datos.proveedor]
     );
 
     const placaLimpia = datos.placa.replace('-', '');
@@ -137,9 +154,9 @@ exports.actualizar = async (req, res) => {
     await conn.beginTransaction();
     await conn.execute(
       `UPDATE registros
-          SET tipo = ?, producto_id = ?, cantidad = ?, placa = ?, numero_guia = ?
+          SET tipo = ?, producto_id = ?, cantidad = ?, placa = ?, numero_guia = ?, proveedor = ?
         WHERE id = ?`,
-      [datos.tipo, datos.productoId, datos.cantidad, datos.placa, datos.numeroGuia, id]
+      [datos.tipo, datos.productoId, datos.cantidad, datos.placa, datos.numeroGuia, datos.proveedor, id]
     );
     await conn.commit();
 

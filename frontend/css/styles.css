@@ -735,6 +735,7 @@ a:hover { color: var(--purple-700); }
 .cantidad-chip.neg { color: var(--neg); }
 
 .prod-name { font-weight: 600; color: var(--ink); font-size: .9rem; }
+.text-truncate-custom { display: inline-block; max-width: 180px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; cursor: help; }
 .prod-meta { font-size: .72rem; color: var(--muted); letter-spacing: .03em; }
 
 .btn-action {
@@ -898,6 +899,8 @@ a:hover { color: var(--purple-700); }
   box-shadow: var(--shadow-sm);
 }
 .num-total small { color: var(--muted); font-size: .66rem; }
+.num-total.zero { background: #fef3c7; border-color: #fde68a; color: #92400e; }
+.num-total.low { background: #fee2e2; border-color: #fecaca; color: #991b1b; }
 
 /* Product detail cards */
 .product-card {
@@ -2162,6 +2165,9 @@ a:hover { color: var(--purple-700); }
   .search-box {
     min-width: 100%;
   }
+  .date-filter-group {
+    width: 100%;
+  }
   .chips-filtro {
     width: 100%;
     justify-content: center;
@@ -2942,6 +2948,7 @@ a:hover { color: var(--purple-700); }
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
+  cursor: help;
 }
 
 .rmc-codigo {
@@ -3041,6 +3048,7 @@ a:hover { color: var(--purple-700); }
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
+  cursor: help;
 }
 
 .pmc-code {
@@ -3319,5 +3327,221 @@ a:hover { color: var(--purple-700); }
   }
   .blob-1, .blob-2, .blob-3 {
     filter: blur(60px);
+  }
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   DATE FILTER GROUP — Registros toolbar
+   ═══════════════════════════════════════════════════════════════ */
+.date-filter-group {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+.date-filter-label {
+  font-size: var(--font-size-xs);
+  font-weight: 600;
+  color: var(--muted);
+  white-space: nowrap;
+  letter-spacing: var(--letter-spacing-wide);
+  text-transform: uppercase;
+}
+.date-filter-label i {
+  margin-right: 2px;
+}
+.date-filter-input {
+  padding: 6px 10px;
+  border: 1.5px solid var(--line);
+  border-radius: var(--border-radius-md);
+  font-size: var(--font-size-sm);
+  font-family: var(--font-family-base);
+  color: var(--ink);
+  background: var(--white);
+  transition: border-color var(--transition-fast), box-shadow var(--transition-fast);
+  max-width: 155px;
+}
+.date-filter-input:focus {
+  outline: none;
+  border-color: var(--purple-400);
+  box-shadow: 0 0 0 3px rgba(var(--color-primary-rgb), .12);
+}
+.btn-clear-dates {
+  background: none;
+  border: none;
+  color: var(--muted);
+  font-size: 1rem;
+  cursor: pointer;
+  padding: 4px;
+  border-radius: var(--border-radius-full);
+  transition: color var(--transition-fast), background var(--transition-fast);
+  line-height: 1;
+}
+.btn-clear-dates:hover {
+  color: var(--neg);
+  background: rgba(var(--neg-rgb), .08);
+}
+
+@media (max-width: 576px) {
+  .date-filter-group {
+    width: 100%;
+    justify-content: flex-start;
+  }
+  .date-filter-input {
+    flex: 1;
+    min-width: 0;
+    max-width: none;
+  }
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   VER REGISTRO — Detail modal
+   ═══════════════════════════════════════════════════════════════ */
+.reg-hero-detail {
+  background: linear-gradient(135deg, var(--purple-700), var(--purple-500));
+}
+.reg-hero-detail .rh-icon.ent {
+  background: rgba(255,255,255,.18);
+  color: #fff;
+}
+.reg-hero-detail .rh-icon.dev {
+  background: rgba(244,114,182,.22);
+  color: #fff;
+}
+.ver-registro-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 18px;
+}
+.ver-reg-field {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 12px 14px;
+  background: var(--purple-50);
+  border-radius: var(--border-radius-lg);
+  border: 1px solid var(--line);
+}
+.ver-reg-full {
+  grid-column: 1 / -1;
+}
+.ver-reg-label {
+  font-size: var(--font-size-xs);
+  font-weight: 600;
+  color: var(--muted);
+  text-transform: uppercase;
+  letter-spacing: var(--letter-spacing-wide);
+}
+.ver-reg-value {
+  font-size: var(--font-size-lg);
+  font-weight: 600;
+  color: var(--ink);
+}
+.ver-reg-value.mono {
+  font-family: var(--font-family-mono);
+  font-weight: 700;
+  letter-spacing: .03em;
+}
+.btn-view-reg {
+  color: var(--info);
+}
+.btn-view-reg:hover {
+  color: var(--purple-600);
+}
+
+@media (max-width: 576px) {
+  .ver-registro-grid {
+    grid-template-columns: 1fr;
+    gap: 12px;
+  }
+  .ver-reg-field {
+    padding: 10px 12px;
+  }
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   DASHBOARD FILTER BAR
+   ═══════════════════════════════════════════════════════════════ */
+.dash-filter-bar {
+  display: flex;
+  align-items: center;
+  gap: 20px;
+  flex-wrap: wrap;
+  padding: 12px 18px;
+  background: var(--white);
+  border: 1.5px solid var(--line);
+  border-radius: var(--border-radius-xl);
+  box-shadow: var(--shadow-1);
+  margin-bottom: 4px;
+}
+.dash-filter-group {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.dash-filter-label {
+  font-size: var(--font-size-xs);
+  font-weight: 700;
+  color: var(--muted);
+  text-transform: uppercase;
+  letter-spacing: var(--letter-spacing-wide);
+  white-space: nowrap;
+}
+.dash-filter-label i {
+  margin-right: 2px;
+}
+.chip-filtro-dash {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 5px 13px;
+  border: 1.5px solid var(--line);
+  border-radius: var(--border-radius-full);
+  background: var(--white);
+  font-size: var(--font-size-xs);
+  font-weight: 600;
+  color: var(--muted);
+  cursor: pointer;
+  transition: all var(--transition-fast);
+  white-space: nowrap;
+  font-family: var(--font-family-base);
+}
+.chip-filtro-dash:hover {
+  border-color: var(--purple-300);
+  color: var(--purple-600);
+  background: var(--purple-50);
+}
+.chip-filtro-dash.active {
+  background: var(--purple-600);
+  border-color: var(--purple-600);
+  color: #fff;
+  box-shadow: 0 2px 8px rgba(var(--color-primary-rgb), .25);
+}
+
+@media (max-width: 768px) {
+  .dash-filter-bar {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 10px;
+    padding: 10px 14px;
+  }
+  .dash-filter-group {
+    width: 100%;
+  }
+  .chip-filtro-dash {
+    flex: 1;
+    justify-content: center;
+    min-width: 0;
+  }
+}
+
+@media (max-width: 576px) {
+  .dash-filter-bar {
+    gap: 8px;
+    padding: 8px 10px;
+  }
+  .chips-filtro .chip-filtro-dash {
+    padding: 4px 8px;
+    font-size: var(--font-size-xs);
   }
 }
