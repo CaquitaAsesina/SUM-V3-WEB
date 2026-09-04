@@ -67,4 +67,58 @@ async function migrarObservaciones() {
   }
 }
 
+/**
+ * Auto-migration: crea las tablas del modulo Auditoria si no existen.
+ * Se ejecuta al iniciar el servidor, despues de migrarObservaciones.
+ */
+async function migrarAuditoria() {
+  const conn = await db.getConnection();
+  try {
+    await conn.query(`CREATE TABLE IF NOT EXISTS areas_auditoria (
+      id             INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+      nombre         VARCHAR(120) NOT NULL,
+      creado_en      DATETIME     NOT NULL DEFAULT CURRENT_TIMESTAMP,
+      actualizado_en DATETIME     NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+      UNIQUE KEY uq_aud_area_nombre (nombre),
+      INDEX idx_aud_area_nombre (nombre)
+    ) ENGINE=InnoDB`);
+
+    await conn.query(`CREATE TABLE IF NOT EXISTS productos_auditoria (
+      id             INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+      codigo         VARCHAR(20)  NOT NULL UNIQUE,
+      nombre         VARCHAR(120) NOT NULL,
+      creado_en      DATETIME     NOT NULL DEFAULT CURRENT_TIMESTAMP,
+      actualizado_en DATETIME     NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+      INDEX idx_aud_prod_nombre (nombre)
+    ) ENGINE=InnoDB`);
+
+    await conn.query(`CREATE TABLE IF NOT EXISTS registros_auditoria (
+      id             INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+      codigo         VARCHAR(40)  NULL UNIQUE,
+      area_id        INT UNSIGNED NOT NULL,
+      producto_id    INT UNSIGNED NOT NULL,
+      cantidad       INT UNSIGNED NOT NULL,
+      fecha          DATETIME     NOT NULL DEFAULT CURRENT_TIMESTAMP,
+      fecha_modifica DATETIME     NULL,
+      CONSTRAINT fk_aud_reg_area
+        FOREIGN KEY (area_id) REFERENCES areas_auditoria(id)
+        ON DELETE CASCADE ON UPDATE CASCADE,
+      CONSTRAINT fk_aud_reg_producto
+        FOREIGN KEY (producto_id) REFERENCES productos_auditoria(id)
+        ON DELETE CASCADE ON UPDATE CASCADE,
+      CONSTRAINT chk_aud_cantidad CHECK (cantidad > 0),
+      INDEX idx_aud_reg_area (area_id),
+      INDEX idx_aud_reg_producto (producto_id),
+      INDEX idx_aud_reg_fecha (fecha)
+    ) ENGINE=InnoDB`);
+
+    console.log('[migración] Tablas del módulo Auditoría verificadas');
+  } catch (err) {
+    console.error('[migración] Error en tablas Auditoría:', err.message);
+  } finally {
+    conn.release();
+  }
+}
+
 module.exports = migrarObservaciones;
+module.exports.migrarAuditoria = migrarAuditoria;

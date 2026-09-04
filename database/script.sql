@@ -14,6 +14,9 @@ SET FOREIGN_KEY_CHECKS = 0;
 DROP TABLE IF EXISTS registros;
 DROP TABLE IF EXISTS productos;
 DROP TABLE IF EXISTS usuarios;
+DROP TABLE IF EXISTS registros_auditoria;
+DROP TABLE IF EXISTS productos_auditoria;
+DROP TABLE IF EXISTS areas_auditoria;
 SET FOREIGN_KEY_CHECKS = 1;
 
 -- ------------------------------------------------------------
@@ -55,6 +58,58 @@ CREATE TABLE registros (
   INDEX idx_reg_tipo (tipo),
   INDEX idx_reg_producto (producto_id),
   INDEX idx_reg_fecha (fecha_hora)
+) ENGINE=InnoDB;
+
+-- ------------------------------------------------------------
+-- TABLA: areas_auditoria
+-- Submodulo Areas del modulo Auditoria (solo nombre)
+-- ------------------------------------------------------------
+CREATE TABLE areas_auditoria (
+  id             INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+  nombre         VARCHAR(120) NOT NULL,
+  creado_en      DATETIME     NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  actualizado_en DATETIME     NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  UNIQUE KEY uq_aud_area_nombre (nombre),
+  INDEX idx_aud_area_nombre (nombre)
+) ENGINE=InnoDB;
+
+-- ------------------------------------------------------------
+-- TABLA: productos_auditoria
+-- Submodulo Productos del modulo Auditoria (codigo y nombre)
+-- ------------------------------------------------------------
+CREATE TABLE productos_auditoria (
+  id             INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+  codigo         VARCHAR(20)  NOT NULL UNIQUE,
+  nombre         VARCHAR(120) NOT NULL,
+  creado_en      DATETIME     NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  actualizado_en DATETIME     NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  INDEX idx_aud_prod_nombre (nombre)
+) ENGINE=InnoDB;
+
+-- ------------------------------------------------------------
+-- TABLA: registros_auditoria
+-- Registros del modulo Auditoria.
+-- El codigo se genera automaticamente: AU-<3 letras del area>-<fecha y hora>
+-- fecha_modifica se llena automaticamente al editar (solo admin).
+-- ------------------------------------------------------------
+CREATE TABLE registros_auditoria (
+  id             INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+  codigo         VARCHAR(40)  NULL UNIQUE,
+  area_id        INT UNSIGNED NOT NULL,
+  producto_id    INT UNSIGNED NOT NULL,
+  cantidad       INT UNSIGNED NOT NULL,
+  fecha          DATETIME     NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  fecha_modifica DATETIME     NULL,
+  CONSTRAINT fk_aud_reg_area
+    FOREIGN KEY (area_id) REFERENCES areas_auditoria(id)
+    ON DELETE CASCADE ON UPDATE CASCADE,
+  CONSTRAINT fk_aud_reg_producto
+    FOREIGN KEY (producto_id) REFERENCES productos_auditoria(id)
+    ON DELETE CASCADE ON UPDATE CASCADE,
+  CONSTRAINT chk_aud_cantidad CHECK (cantidad > 0),
+  INDEX idx_aud_reg_area (area_id),
+  INDEX idx_aud_reg_producto (producto_id),
+  INDEX idx_aud_reg_fecha (fecha)
 ) ENGINE=InnoDB;
 
 -- ------------------------------------------------------------

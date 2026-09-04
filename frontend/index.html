@@ -274,6 +274,19 @@
         <i class="bi bi-graph-up-arrow"></i><span>Dashboard</span>
         <em class="nav-dot"></em>
       </a>
+      <p class="nav-section-title mt-4">Módulo · Auditoría</p>
+      <a class="nav-link-module" data-view="auditoria-registros">
+        <i class="bi bi-clipboard-check"></i><span>Registros</span>
+        <em class="nav-dot"></em>
+      </a>
+      <a class="nav-link-module" data-view="auditoria-productos">
+        <i class="bi bi-boxes"></i><span>Productos</span>
+        <em class="nav-dot"></em>
+      </a>
+      <a class="nav-link-module" data-view="auditoria-areas">
+        <i class="bi bi-diagram-3"></i><span>Áreas</span>
+        <em class="nav-dot"></em>
+      </a>
       <p class="nav-section-title mt-4">Administración</p>
       <a class="nav-link-module" data-view="usuarios">
         <i class="bi bi-people"></i><span>Usuarios</span>
@@ -310,6 +323,16 @@
       </a>
       <a class="nav-link-module" data-view="dashboard" data-bs-dismiss="offcanvas">
         <i class="bi bi-graph-up-arrow"></i><span>Dashboard</span><em class="nav-dot"></em>
+      </a>
+      <p class="nav-section-title mt-4">Módulo · Auditoría</p>
+      <a class="nav-link-module" data-view="auditoria-registros" data-bs-dismiss="offcanvas">
+        <i class="bi bi-clipboard-check"></i><span>Registros</span><em class="nav-dot"></em>
+      </a>
+      <a class="nav-link-module" data-view="auditoria-productos" data-bs-dismiss="offcanvas">
+        <i class="bi bi-boxes"></i><span>Productos</span><em class="nav-dot"></em>
+      </a>
+      <a class="nav-link-module" data-view="auditoria-areas" data-bs-dismiss="offcanvas">
+        <i class="bi bi-diagram-3"></i><span>Áreas</span><em class="nav-dot"></em>
       </a>
       <p class="nav-section-title mt-4">Administración</p>
       <a class="nav-link-module" data-view="usuarios" data-bs-dismiss="offcanvas">
@@ -816,6 +839,206 @@
       </div>
     </section>
 
+    <section class="view" id="view-auditoria-registros">
+
+      <div class="view-header reveal">
+        <div class="vh-text">
+          <span class="crumb">Módulo Auditoría / Registros</span>
+          <h2>Registros de auditoría</h2>
+          <p>Registra cantidades por área y producto. Solo el administrador puede editar o eliminar.</p>
+        </div>
+        <div class="vh-actions d-flex align-items-center gap-2 gap-md-3 flex-wrap">
+          <button class="btn btn-gradient btn-lg-soft" id="btnAbrirAudRegistro">
+            <i class="bi bi-plus-lg me-2 btn-ico"></i>Nuevo registro
+          </button>
+        </div>
+      </div>
+
+      <div class="card-app card-table reveal" style="--d:.08s">
+        <div class="card-app-head">
+          <div class="ca-icon grad-c"><i class="bi bi-clipboard-check"></i></div>
+          <div class="flex-grow-1">
+            <h3>Historial de auditoría</h3>
+            <p><span id="contadorAudRegistros">Cargando…</span></p>
+          </div>
+          <div class="d-flex align-items-center gap-2">
+            <button class="btn-export" id="btnAudExportar" title="Exportar a Excel lo que se muestra">
+              <span class="spinner-border spinner-border-sm be-spinner d-none" role="status"></span>
+              <i class="bi bi-file-earmark-excel be-ico"></i>
+              <i class="bi bi-check2-circle be-done d-none"></i>
+              <span class="be-label">Exportar</span>
+            </button>
+            <button class="btn-refresh" id="btnAudRecargar" title="Actualizar"><i
+                class="bi bi-arrow-clockwise"></i></button>
+          </div>
+        </div>
+
+        <div class="toolbar">
+          <div class="search-box">
+            <i class="bi bi-search"></i>
+            <input id="inpAudBuscarCodigo" placeholder="Buscar por código de producto…" autocomplete="off">
+          </div>
+          <select class="form-select aud-filter-select" id="selAudFiltroArea" aria-label="Filtrar por área">
+            <option value="">Todas las áreas</option>
+          </select>
+          <div class="date-filter-group">
+            <label class="date-filter-label"><i class="bi bi-calendar-event"></i> Desde</label>
+            <input type="date" id="inpAudFechaDesde" class="date-filter-input">
+            <label class="date-filter-label">Hasta</label>
+            <input type="date" id="inpAudFechaHasta" class="date-filter-input">
+            <button type="button" class="btn-clear-dates" id="btnAudClearDates" title="Limpiar fechas" style="display:none">
+              <i class="bi bi-x-circle"></i>
+            </button>
+          </div>
+        </div>
+
+        <div class="skeleton-group" id="skeletonAudRegistros">
+          <div class="skel-row"><span class="skeleton w-25"></span><span class="skeleton w-15"></span><span
+              class="skeleton w-20"></span><span class="skeleton flex-fill"></span><span class="skeleton w-10"></span>
+          </div>
+          <div class="skel-row"><span class="skeleton w-25"></span><span class="skeleton w-15"></span><span
+              class="skeleton w-20"></span><span class="skeleton flex-fill"></span><span class="skeleton w-10"></span>
+          </div>
+          <div class="skel-row"><span class="skeleton w-25"></span><span class="skeleton w-15"></span><span
+              class="skeleton w-20"></span><span class="skeleton flex-fill"></span><span class="skeleton w-10"></span>
+          </div>
+        </div>
+
+        <div class="empty-state d-none" id="emptyAudRegistros" role="status">
+          <div class="es-icon"><i class="bi bi-clipboard-x"></i></div>
+          <h4 id="emptyAudRegistrosTitulo">Sin registros todavía</h4>
+          <p>Cuando registres una auditoría aparecerá aquí.</p>
+          <button class="btn btn-gradient mt-2 d-none" id="btnNuevoAudRegistroEmpty">
+            <i class="bi bi-plus-lg me-2 btn-ico"></i>Registrar el primero
+          </button>
+        </div>
+
+        <div class="table-responsive d-none" id="wrapTablaAudRegistros">
+          <table class="table table-modern align-middle mb-0">
+            <thead>
+              <tr>
+                <th>Código</th>
+                <th>Área</th>
+                <th>Código producto</th>
+                <th>Producto</th>
+                <th class="text-center">Cant.</th>
+                <th>Fecha</th>
+                <th>Fecha modifica</th>
+                <th class="text-end">Acciones</th>
+              </tr>
+            </thead>
+            <tbody id="tbodyAudRegistros"></tbody>
+          </table>
+        </div>
+      </div>
+    </section>
+
+    <section class="view" id="view-auditoria-productos">
+
+      <div class="view-header reveal">
+        <div class="vh-text">
+          <span class="crumb">Módulo Auditoría / Productos</span>
+          <h2>Productos de auditoría</h2>
+          <p>Registra el código y nombre de los productos que se auditarán.</p>
+        </div>
+        <button class="btn btn-gradient btn-lg-soft" id="btnNuevoAudProducto">
+          <i class="bi bi-plus-lg me-2 btn-ico"></i>Nuevo producto
+        </button>
+      </div>
+
+      <div class="card-app card-table reveal" style="--d:.08s">
+        <div class="toolbar">
+          <div class="search-box">
+            <i class="bi bi-search"></i>
+            <input id="inpBuscarAudProducto" placeholder="Buscar producto o código…" autocomplete="off">
+          </div>
+          <span class="counter-pill" id="contadorAudProductos">—</span>
+        </div>
+
+        <div class="skeleton-group" id="skeletonAudProductos">
+          <div class="skel-row"><span class="skeleton w-20"></span><span class="skeleton flex-fill"></span><span
+              class="skeleton w-15"></span></div>
+          <div class="skel-row"><span class="skeleton w-20"></span><span class="skeleton flex-fill"></span><span
+              class="skeleton w-15"></span></div>
+          <div class="skel-row"><span class="skeleton w-20"></span><span class="skeleton flex-fill"></span><span
+              class="skeleton w-15"></span></div>
+        </div>
+
+        <div class="empty-state d-none" id="emptyAudProductos" role="status">
+          <div class="es-icon"><i class="bi bi-boxes"></i></div>
+          <h4 id="emptyAudProductosTitulo">No hay productos</h4>
+          <p>Crea tu primer producto de auditoría para poder registrarlo.</p>
+          <button class="btn btn-gradient mt-2" id="btnNuevoAudProductoEmpty">
+            <i class="bi bi-plus-lg me-2 btn-ico"></i>Crear producto
+          </button>
+        </div>
+
+        <div class="table-responsive d-none" id="wrapTablaAudProductos">
+          <table class="table table-modern align-middle mb-0">
+            <thead>
+              <tr>
+                <th>Código</th>
+                <th>Producto</th>
+                <th class="text-end">Acciones</th>
+              </tr>
+            </thead>
+            <tbody id="tbodyAudProductos"></tbody>
+          </table>
+        </div>
+      </div>
+    </section>
+
+    <section class="view" id="view-auditoria-areas">
+
+      <div class="view-header reveal">
+        <div class="vh-text">
+          <span class="crumb">Módulo Auditoría / Áreas</span>
+          <h2>Áreas de auditoría</h2>
+          <p>Administra las áreas que aparecerán al registrar una auditoría.</p>
+        </div>
+        <button class="btn btn-gradient btn-lg-soft" id="btnNuevoAudArea">
+          <i class="bi bi-plus-lg me-2 btn-ico"></i>Nueva área
+        </button>
+      </div>
+
+      <div class="card-app card-table reveal" style="--d:.08s">
+        <div class="toolbar">
+          <div class="search-box">
+            <i class="bi bi-search"></i>
+            <input id="inpBuscarAudArea" placeholder="Buscar área…" autocomplete="off">
+          </div>
+          <span class="counter-pill" id="contadorAudAreas">—</span>
+        </div>
+
+        <div class="skeleton-group" id="skeletonAudAreas">
+          <div class="skel-row"><span class="skeleton flex-fill"></span><span class="skeleton w-15"></span></div>
+          <div class="skel-row"><span class="skeleton flex-fill"></span><span class="skeleton w-15"></span></div>
+          <div class="skel-row"><span class="skeleton flex-fill"></span><span class="skeleton w-15"></span></div>
+        </div>
+
+        <div class="empty-state d-none" id="emptyAudAreas" role="status">
+          <div class="es-icon"><i class="bi bi-diagram-3"></i></div>
+          <h4 id="emptyAudAreasTitulo">No hay áreas</h4>
+          <p>Crea tu primera área para poder registrar auditorías.</p>
+          <button class="btn btn-gradient mt-2" id="btnNuevoAudAreaEmpty">
+            <i class="bi bi-plus-lg me-2 btn-ico"></i>Crear área
+          </button>
+        </div>
+
+        <div class="table-responsive d-none" id="wrapTablaAudAreas">
+          <table class="table table-modern align-middle mb-0">
+            <thead>
+              <tr>
+                <th>Área</th>
+                <th class="text-end">Acciones</th>
+              </tr>
+            </thead>
+            <tbody id="tbodyAudAreas"></tbody>
+          </table>
+        </div>
+      </div>
+    </section>
+
     <footer class="app-footer" role="contentinfo">
       <span>© 2026 Suministros · Farmacias Peruanas</span>
       <span class="d-none d-sm-inline">Contacto: 902044601</span>
@@ -835,6 +1058,10 @@
     <a class="mbn-item" data-view="dashboard" href="#" role="button" aria-label="Dashboard">
       <i class="bi bi-graph-up-arrow"></i>
       <span>Dashboard</span>
+    </a>
+    <a class="mbn-item" data-view="auditoria-registros" href="#" role="button" aria-label="Auditoría">
+      <i class="bi bi-clipboard-check"></i>
+      <span>Auditoría</span>
     </a>
     <a class="mbn-item" data-view="usuarios" href="#" role="button" aria-label="Usuarios">
       <i class="bi bi-people"></i>
@@ -1222,6 +1449,251 @@
               <i class="bi bi-check2 me-1"></i>Activar
             </button>
           </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="modal fade" id="modalAudRegistro" tabindex="-1" aria-hidden="true" aria-labelledby="modalAudRegistroLabel" aria-modal="true">
+    <div class="modal-dialog modal-dialog-centered">
+      <div class="modal-content modal-app fx-pop">
+        <div class="reg-hero">
+          <div class="rh-icon"><i class="bi bi-clipboard-plus"></i></div>
+          <div class="flex-grow-1">
+            <h5 id="modalAudRegistroLabel">Registrar auditoría</h5>
+            <small><i class="bi bi-magic me-1"></i>Código AU correlativo por área y fecha automática</small>
+          </div>
+          <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Cerrar"></button>
+        </div>
+
+        <div class="modal-body pt-4">
+          <form id="formAudRegistro" novalidate>
+            <div class="row g-3">
+              <div class="col-12 fx-item" style="--d:.12s">
+                <label class="form-label" for="selAudArea">Área</label>
+                <select class="form-select" id="selAudArea" required>
+                  <option value="" selected disabled>Cargando áreas…</option>
+                </select>
+                <div class="invalid-feedback">Selecciona un área de la lista.</div>
+              </div>
+              <div class="col-12 fx-item" style="--d:.20s">
+                <label class="form-label" for="selAudProducto">Producto</label>
+                <select class="form-select" id="selAudProducto" required>
+                  <option value="" selected disabled>Cargando productos…</option>
+                </select>
+                <div class="invalid-feedback">Selecciona un producto de la lista.</div>
+                <div class="d-none mt-2 p-2 rounded-3 warn-box" id="audWarnSinProductos">
+                  <i class="bi bi-exclamation-triangle me-1"></i>
+                  Aún no hay productos. Créalos en el sub-módulo <b>Productos</b>.
+                </div>
+              </div>
+              <div class="col-12 col-md-6 fx-item" style="--d:.27s">
+                <label class="form-label" for="inpAudProductoCodigo">Código del producto</label>
+                <input type="text" class="form-control fw-semibold" id="inpAudProductoCodigo" readonly
+                  placeholder="Se completa al elegir producto">
+              </div>
+              <div class="col-12 col-md-6 fx-item" style="--d:.32s">
+                <label class="form-label" for="inpAudCantidad">Cantidad</label>
+                <input type="number" class="form-control" id="inpAudCantidad" min="1" max="1000000" step="1" value="1"
+                  inputmode="numeric">
+                <div class="invalid-feedback">Debe ser mayor a 0.</div>
+              </div>
+            </div>
+
+            <div class="auto-strip fx-item" style="--d:.40s">
+              <span><i class="bi bi-hdd-rack"></i> Código: <b id="audPreviewCodigo">AU-···-····-··-··-··</b></span>
+              <span><i class="bi bi-clock-history"></i> Ahora: <b id="relojAudModal">—</b></span>
+            </div>
+          </form>
+        </div>
+
+        <div class="modal-footer fx-item" style="--d:.46s">
+          <button type="button" class="btn btn-ghost" data-bs-dismiss="modal">Cancelar</button>
+          <button type="submit" form="formAudRegistro" class="btn btn-gradient" id="btnGuardarAudRegistro">
+            <span class="spinner-border spinner-border-sm d-none me-2" role="status"></span>
+            <i class="bi bi-save2 me-2 btn-ico"></i>Guardar registro
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="modal fade" id="modalAudRegistroEdit" tabindex="-1" aria-hidden="true" aria-labelledby="audEditCodigoChip" aria-modal="true">
+    <div class="modal-dialog modal-dialog-centered">
+      <div class="modal-content modal-app fx-pop">
+        <div class="modal-header">
+          <div class="mh-title">
+            <div class="ca-icon grad-c sm"><i class="bi bi-pencil-square"></i></div>
+            <div>
+              <h5 class="modal-title">Editar registro de auditoría</h5>
+              <small id="audEditCodigoChip">—</small>
+            </div>
+          </div>
+          <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Cerrar"></button>
+        </div>
+        <div class="modal-body">
+          <form id="formAudRegistroEdit" novalidate>
+            <div class="row g-3">
+              <div class="col-12">
+                <label class="form-label" for="editSelAudArea">Área</label>
+                <select class="form-select" id="editSelAudArea" required>
+                  <option value="" selected disabled>Cargando áreas…</option>
+                </select>
+                <div class="invalid-feedback">Selecciona un área de la lista.</div>
+              </div>
+              <div class="col-12">
+                <label class="form-label" for="editSelAudProducto">Producto</label>
+                <select class="form-select" id="editSelAudProducto" required>
+                  <option value="" selected disabled>Cargando productos…</option>
+                </select>
+                <div class="invalid-feedback">Selecciona un producto de la lista.</div>
+              </div>
+              <div class="col-12 col-md-6">
+                <label class="form-label" for="editAudProductoCodigo">Código del producto</label>
+                <input type="text" class="form-control fw-semibold" id="editAudProductoCodigo" readonly
+                  placeholder="Se completa al elegir producto">
+              </div>
+              <div class="col-12 col-md-6">
+                <label class="form-label" for="editAudCantidad">Cantidad</label>
+                <input type="number" class="form-control" id="editAudCantidad" min="1" max="1000000" step="1">
+                <div class="invalid-feedback">Debe ser mayor a 0.</div>
+              </div>
+            </div>
+            <p class="hint-auto mt-3 mb-0"><i class="bi bi-pencil"></i> Al guardar se registrará la fecha de
+              modificación en su columna.</p>
+          </form>
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-ghost" data-bs-dismiss="modal">Cancelar</button>
+          <button type="button" class="btn btn-gradient" id="btnGuardarAudRegistroEdit">
+            <span class="spinner-border spinner-border-sm d-none me-2"></span>
+            <i class="bi bi-check2 me-1 btn-ico"></i>Guardar cambios
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="modal fade" id="modalAudVerRegistro" tabindex="-1" aria-hidden="true" aria-labelledby="audVerRegistroTitle" aria-modal="true">
+    <div class="modal-dialog modal-dialog-centered modal-lg">
+      <div class="modal-content modal-app fx-pop">
+        <div class="reg-hero reg-hero-detail">
+          <div class="rh-icon"><i class="bi bi-clipboard-check"></i></div>
+          <div class="flex-grow-1">
+            <h5 id="audVerRegistroTitle">Detalle del registro</h5>
+            <small id="audVerRegistroCodigo">—</small>
+          </div>
+          <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Cerrar"></button>
+        </div>
+        <div class="modal-body pt-4">
+          <div class="ver-registro-grid">
+            <div class="ver-reg-field">
+              <span class="ver-reg-label">Área</span>
+              <span class="ver-reg-value" id="audVerRegArea">—</span>
+            </div>
+            <div class="ver-reg-field">
+              <span class="ver-reg-label">Producto</span>
+              <span class="ver-reg-value" id="audVerRegProducto">—</span>
+            </div>
+            <div class="ver-reg-field">
+              <span class="ver-reg-label">Código producto</span>
+              <span class="ver-reg-value mono" id="audVerRegProdCodigo">—</span>
+            </div>
+            <div class="ver-reg-field">
+              <span class="ver-reg-label">Cantidad</span>
+              <span class="ver-reg-value" id="audVerRegCantidad">—</span>
+            </div>
+            <div class="ver-reg-field">
+              <span class="ver-reg-label">Fecha de registro</span>
+              <span class="ver-reg-value" id="audVerRegFecha">—</span>
+            </div>
+            <div class="ver-reg-field">
+              <span class="ver-reg-label">Fecha de modificación</span>
+              <span class="ver-reg-value" id="audVerRegFechaMod">—</span>
+            </div>
+          </div>
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-ghost" data-bs-dismiss="modal">Cerrar</button>
+          <button type="button" class="btn btn-gradient" id="btnAudVerEditar">
+            <i class="bi bi-pencil-square me-2 btn-ico"></i>Editar
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="modal fade" id="modalAudProducto" tabindex="-1" aria-hidden="true" aria-labelledby="tituloModalAudProducto" aria-modal="true">
+    <div class="modal-dialog modal-dialog-centered">
+      <div class="modal-content modal-app fx-pop">
+        <div class="modal-header">
+          <div class="mh-title">
+            <div class="ca-icon grad-a sm"><i class="bi bi-boxes"></i></div>
+            <div>
+              <h5 class="modal-title" id="tituloModalAudProducto">Nuevo producto de auditoría</h5>
+              <small>Solo código y nombre</small>
+            </div>
+          </div>
+          <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Cerrar"></button>
+        </div>
+        <div class="modal-body">
+          <form id="formAudProducto" novalidate>
+            <div class="row g-3">
+              <div class="col-12 col-md-5">
+                <label class="form-label" for="inpAudCodigoProd">Código</label>
+                <input type="text" class="form-control text-uppercase fw-semibold" id="inpAudCodigoProd"
+                  placeholder="Ej. P-AUD-001" maxlength="20" autocomplete="off" spellcheck="false">
+                <div class="invalid-feedback">El código es obligatorio.</div>
+              </div>
+              <div class="col-12 col-md-7">
+                <label class="form-label" for="inpAudNombreProd">Nombre del producto</label>
+                <input type="text" class="form-control" id="inpAudNombreProd" placeholder="Ej. ROLLOS TIPO BURBUJA"
+                  maxlength="120">
+                <div class="invalid-feedback">El nombre es obligatorio.</div>
+              </div>
+            </div>
+          </form>
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-ghost" data-bs-dismiss="modal">Cancelar</button>
+          <button type="button" class="btn btn-gradient" id="btnGuardarAudProducto">
+            <span class="spinner-border spinner-border-sm d-none me-2"></span>
+            <i class="bi bi-check2 me-1 btn-ico"></i>Guardar
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="modal fade" id="modalAudArea" tabindex="-1" aria-hidden="true" aria-labelledby="tituloModalAudArea" aria-modal="true">
+    <div class="modal-dialog modal-dialog-centered">
+      <div class="modal-content modal-app fx-pop">
+        <div class="modal-header">
+          <div class="mh-title">
+            <div class="ca-icon grad-b sm"><i class="bi bi-diagram-3"></i></div>
+            <div>
+              <h5 class="modal-title" id="tituloModalAudArea">Nueva área de auditoría</h5>
+              <small>Solo nombre</small>
+            </div>
+          </div>
+          <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Cerrar"></button>
+        </div>
+        <div class="modal-body">
+          <form id="formAudArea" novalidate>
+            <div class="col-12">
+              <label class="form-label" for="inpAudNombreArea">Nombre del área</label>
+              <input type="text" class="form-control" id="inpAudNombreArea" placeholder="Ej. Almacén Central"
+                maxlength="120">
+              <div class="invalid-feedback">El nombre es obligatorio.</div>
+            </div>
+          </form>
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-ghost" data-bs-dismiss="modal">Cancelar</button>
+          <button type="button" class="btn btn-gradient" id="btnGuardarAudArea">
+            <span class="spinner-border spinner-border-sm d-none me-2"></span>
+            <i class="bi bi-check2 me-1 btn-ico"></i>Guardar
+          </button>
         </div>
       </div>
     </div>

@@ -511,6 +511,7 @@ function navigate(view) {
   window.scrollTo({ top: 0, behavior: 'smooth' });
   if (view === 'dashboard') cargarDashboard();
   if (view === 'usuarios') cargarUsuarios();
+  if (view.startsWith('auditoria')) cargarAuditoria();
 }
 
 $$('.nav-link-module').forEach(a => a.addEventListener('click', () => navigate(a.dataset.view)));
@@ -533,6 +534,8 @@ function tick() {
   if (chip) chip.textContent = `${fecha.charAt(0).toUpperCase() + fecha.slice(1)} · ${hora}`;
   const relojModal = $('#relojModal');
   if (relojModal) relojModal.textContent = hora;
+  const relojAudModal = $('#relojAudModal');
+  if (relojAudModal) relojAudModal.textContent = hora;
 }
 setInterval(tick, 1000);
 
@@ -1259,6 +1262,76 @@ document.addEventListener('click', async e => {
       }
     });
 
+  } else if (action === 'aud-view-registro') {
+    const r = state.audRegistros.find(x => x.id === id);
+    if (r) abrirVerAudRegistro(r);
+
+  } else if (action === 'aud-edit-registro') {
+    if (!esAdmin()) {
+      toast('Solo el administrador puede editar registros de auditoría', 'warning');
+      return;
+    }
+    const r = state.audRegistros.find(x => x.id === id);
+    if (r) abrirAudModalRegistroEdit(r);
+
+  } else if (action === 'aud-del-registro') {
+    if (!esAdmin()) {
+      toast('Solo el administrador puede eliminar registros de auditoría', 'warning');
+      return;
+    }
+    const r = state.audRegistros.find(x => x.id === id);
+    if (!r) return;
+    confirmar({
+      titulo: '¿Eliminar registro de auditoría?',
+      mensaje: `Se eliminará el registro ${r.codigo} (${r.area_nombre}). Esta acción no se puede deshacer.`,
+      onOk: async () => {
+        await api(`/auditoria/registros/${id}`, {
+          method: 'DELETE',
+          headers: { 'X-User-Rol': currentUser?.rol || '' }
+        });
+        toast('Registro eliminado correctamente');
+        await cargarAuditoria();
+      }
+    });
+
+  } else if (action === 'aud-edit-producto') {
+    abrirAudModalProducto(state.audProductos.find(p => p.id === id));
+
+  } else if (action === 'aud-del-producto') {
+    const p = state.audProductos.find(x => x.id === id);
+    if (!p) return;
+    const n = p.total_registros ?? 0;
+    confirmar({
+      titulo: `¿Eliminar "${p.nombre}"?`,
+      mensaje: n > 0
+        ? `Este producto tiene ${n} registro(s) de auditoría asociados que también se eliminarán. Esta acción no se puede deshacer.`
+        : 'Esta acción no se puede deshacer.',
+      onOk: async () => {
+        await api(`/auditoria/productos/${id}`, { method: 'DELETE' });
+        toast('Producto eliminado correctamente');
+        await cargarAuditoria();
+      }
+    });
+
+  } else if (action === 'aud-edit-area') {
+    abrirAudModalArea(state.audAreas.find(a => a.id === id));
+
+  } else if (action === 'aud-del-area') {
+    const a = state.audAreas.find(x => x.id === id);
+    if (!a) return;
+    const n = a.total_registros ?? 0;
+    confirmar({
+      titulo: `¿Eliminar área "${a.nombre}"?`,
+      mensaje: n > 0
+        ? `Esta área tiene ${n} registro(s) de auditoría asociados que también se eliminarán. Esta acción no se puede deshacer.`
+        : 'Esta acción no se puede deshacer.',
+      onOk: async () => {
+        await api(`/auditoria/areas/${id}`, { method: 'DELETE' });
+        toast('Área eliminada correctamente');
+        await cargarAuditoria();
+      }
+    });
+
   } else if (action === 'del-usuario') {
     const u = state.usuarios.find(x => x.id === id);
     if (!u) return;
@@ -1295,6 +1368,743 @@ document.addEventListener('click', async e => {
       }
     });
   }
+});
+
+/* ================================================================
+   MÓDULO AUDITORÍA — áreas, productos y registros
+   ================================================================ */
+
+state.audAreas = [];
+state.audProductos = [];
+state.audRegistros = [];
+state.audFiltroArea = '';
+state.audFechaDesde = '';
+state.audFechaHasta = '';
+state.audBusquedaCodigo = '';
+state.audBusquedaProd = '';
+state.audBusquedaArea = '';
+state.audProductoEdit = null;
+state.audAreaEdit = null;
+state.audRegistroEdit = null;
+state.audVerRegistroId = null;
+state.audExportando = false;
+
+function esAdmin() {
+  return !!(currentUser && currentUser.rol === 'ADMIN');
+}
+
+function pad2(n) { return String(n).padStart(2, '0'); }
+
+/** Primeras 3 letras del área: sin tildes, mayúsculas, A-Z0-9 */
+function audSiglasArea(nombre) {
+  return (nombre || '')
+    .normalize('NFD').replace(/[\u0300-\u036f]/g, '')
+    .toUpperCase().replace(/[^A-Z0-9]/g, '').slice(0, 3);
+}
+
+function audCodigoPreview(siglas, correlativo) {
+  const n = new Date();
+  const num = correlativo != null ? String(correlativo).padStart(2, '0') : '··';
+  return `AU-${siglas || '···'}-${n.getFullYear()}-${pad2(n.getMonth() + 1)}-${pad2(n.getDate())}-${num}`;
+}
+
+function audNombreCorto(nombre, max = 30) {
+  const s = String(nombre ?? '');
+  return s.length > max ? s.slice(0, Math.max(1, max - 1)) + '…' : s;
+}
+
+async function cargarAuditoria() {
+  await Promise.all([cargarAudAreas(), cargarAudProductos(), cargarAudRegistros()]);
+}
+
+async function cargarAudAreas() {
+  state.audAreas = await api('/auditoria/areas');
+  poblarAudSelects();
+  renderAudAreas();
+}
+
+async function cargarAudProductos() {
+  state.audProductos = await api('/auditoria/productos');
+  poblarAudSelects();
+  renderAudProductos();
+}
+
+async function cargarAudRegistros() {
+  $('#skeletonAudRegistros').classList.remove('d-none');
+  $('#wrapTablaAudRegistros').classList.add('d-none');
+  $('#emptyAudRegistros').classList.add('d-none');
+  state.audRegistros = await api('/auditoria/registros');
+  renderAudRegistros();
+}
+
+function poblarAudSelects() {
+  const areas = state.audAreas;
+  const prods = state.audProductos;
+  const opcAreas = areas.map(a => `<option value="${a.id}">${esc(a.nombre)}</option>`).join('');
+  const opcProds = prods.map(p => `<option value="${p.id}">${esc(p.codigo)} · ${esc(p.nombre)}</option>`).join('');
+
+  const baseArea = `<option value="" selected disabled>${areas.length ? 'Selecciona un área…' : 'No hay áreas disponibles'}</option>`;
+  $('#selAudArea').innerHTML = baseArea + opcAreas;
+  $('#editSelAudArea').innerHTML = baseArea + opcAreas;
+  $('#selAudFiltroArea').innerHTML = '<option value="">Todas las áreas</option>' + opcAreas;
+
+  const baseProd = `<option value="" selected disabled>${prods.length ? 'Selecciona un producto…' : 'No hay productos disponibles'}</option>`;
+  $('#selAudProducto').innerHTML = baseProd + opcProds;
+  $('#editSelAudProducto').innerHTML = baseProd + opcProds;
+  $('#audWarnSinProductos').classList.toggle('d-none', prods.length > 0);
+}
+
+/* ---------- registros: filtros y tabla ---------- */
+
+function audRegistrosFiltrados() {
+  const q = state.audBusquedaCodigo.trim().toLowerCase();
+  const areaId = state.audFiltroArea;
+  const desde = state.audFechaDesde;
+  const hasta = state.audFechaHasta;
+  return state.audRegistros.filter(r => {
+    if (areaId && Number(r.area_id) !== Number(areaId)) return false;
+    if (desde || hasta) {
+      const fechaReg = String(r.fecha).slice(0, 10);
+      if (desde && fechaReg < desde) return false;
+      if (hasta && fechaReg > hasta) return false;
+    }
+    if (q && !String(r.producto_codigo || '').toLowerCase().includes(q)) return false;
+    return true;
+  });
+}
+
+function renderAudRegistros() {
+  const total = state.audRegistros.length;
+  const lista = audRegistrosFiltrados();
+  const hay = total > 0;
+
+  $('#contadorAudRegistros').textContent = hay ? `${lista.length} de ${total} registros` : 'Sin registros';
+  $('#skeletonAudRegistros').classList.add('d-none');
+
+  const mostrarVacio = !hay || lista.length === 0;
+  $('#wrapTablaAudRegistros').classList.toggle('d-none', mostrarVacio);
+  $('#emptyAudRegistros').classList.toggle('d-none', !mostrarVacio);
+  $('#btnNuevoAudRegistroEmpty').classList.toggle('d-none', !hay);
+  $('#emptyAudRegistrosTitulo').textContent = !hay ? 'Sin registros todavía' : 'Sin resultados';
+  $('#emptyAudRegistros p').textContent = !hay
+    ? 'Cuando registres una auditoría aparecerá aquí.'
+    : 'Ningún registro coincide con los filtros aplicados.';
+
+  if (mostrarVacio) return;
+
+  const admin = esAdmin();
+  const acciones = r => admin
+    ? `<button class="btn-action btn-view-reg" data-action="aud-view-registro" data-id="${r.id}" title="Ver detalle"><i class="bi bi-eye"></i></button>
+       <button class="btn-action" data-action="aud-edit-registro" data-id="${r.id}" title="Editar"><i class="bi bi-pencil-square"></i></button>
+       <button class="btn-action danger" data-action="aud-del-registro" data-id="${r.id}" title="Eliminar"><i class="bi bi-trash3"></i></button>`
+    : `<button class="btn-action btn-view-reg" data-action="aud-view-registro" data-id="${r.id}" title="Ver detalle"><i class="bi bi-eye"></i></button>`;
+
+  $('#tbodyAudRegistros').innerHTML = lista.map((r, i) => `
+      <tr style="--d:${Math.min(i * .035, .4)}s">
+        <td><span class="badge badge-code">${esc(r.codigo)}</span></td>
+        <td><span class="badge badge-area">${esc(r.area_nombre)}</span></td>
+        <td><span class="badge badge-placa">${esc(r.producto_codigo)}</span></td>
+        <td>
+          <span class="prod-name text-truncate-custom trunc-reg has-tip" data-tip="${esc(r.producto_nombre)}">${esc(audNombreCorto(r.producto_nombre, 16))}</span>
+        </td>
+        <td class="text-center"><span class="cantidad-chip pos">${r.cantidad}</span></td>
+        <td><span class="small text-muted-lila" style="white-space:nowrap">${fmtFecha(r.fecha)}</span></td>
+        <td><span class="small text-muted-lila" style="white-space:nowrap">${r.fecha_modifica ? fmtFecha(r.fecha_modifica) : '<span class="text-muted">—</span>'}</span></td>
+        <td class="text-end text-nowrap">${acciones(r)}</td>
+      </tr>`).join('');
+
+  // Mobile cards
+  const existingMobile = $('#wrapTablaAudRegistros').previousElementSibling;
+  if (existingMobile && existingMobile.classList.contains('aud-registros-mobile-cards')) existingMobile.remove();
+  const mobileHTML = renderAudRegistrosMobile(lista);
+  if (mobileHTML) {
+    const wrapper = document.createElement('div');
+    wrapper.innerHTML = mobileHTML;
+    $('#wrapTablaAudRegistros').parentNode.insertBefore(wrapper.firstElementChild, $('#wrapTablaAudRegistros'));
+  }
+}
+
+function renderAudRegistrosMobile(lista) {
+  if (!lista.length) return '';
+  const admin = esAdmin();
+  return `<div class="d-md-none aud-registros-mobile-cards">${lista.map((r, i) => `
+    <div class="registro-mobile-card" style="animation-delay:${Math.min(i * .05, .4)}s">
+      <div class="rmc-header">
+        <div class="rmc-icon ent"><i class="bi bi-clipboard-check"></i></div>
+        <div class="rmc-title">
+          <span class="rmc-producto has-tip" data-tip="${esc(r.producto_nombre)}">${esc(audNombreCorto(r.producto_nombre, 14))}</span>
+          <span class="rmc-codigo"><i class="bi bi-hash"></i>${esc(r.codigo)}</span>
+        </div>
+        <span class="badge badge-area">${esc(audNombreCorto(r.area_nombre, 14))}</span>
+      </div>
+      <div class="rmc-body">
+        <div class="rmc-field"><label>Código producto</label><span>${esc(r.producto_codigo)}</span></div>
+        <div class="rmc-field"><label>Cantidad</label><span class="cantidad-chip pos">${r.cantidad}</span></div>
+        <div class="rmc-field"><label>Fecha</label><span>${fmtFecha(r.fecha)}</span></div>
+        <div class="rmc-field"><label>Fecha modifica</label><span>${r.fecha_modifica ? fmtFecha(r.fecha_modifica) : '—'}</span></div>
+      </div>
+      <div class="rmc-actions">
+        <button class="btn-action btn-view-reg" data-action="aud-view-registro" data-id="${r.id}" title="Ver detalle"><i class="bi bi-eye"></i></button>
+        ${admin
+          ? `<button class="btn-action" data-action="aud-edit-registro" data-id="${r.id}" title="Editar"><i class="bi bi-pencil-square"></i></button>
+             <button class="btn-action danger" data-action="aud-del-registro" data-id="${r.id}" title="Eliminar"><i class="bi bi-trash3"></i></button>`
+          : ''}
+      </div>
+    </div>`).join('')}</div>`;
+}
+
+/* ---------- registros: listeners de filtros ---------- */
+
+$('#inpAudBuscarCodigo').addEventListener('input', e => {
+  state.audBusquedaCodigo = e.target.value;
+  renderAudRegistros();
+});
+$('#selAudFiltroArea').addEventListener('change', e => {
+  state.audFiltroArea = e.target.value;
+  renderAudRegistros();
+});
+$('#inpAudFechaDesde')?.addEventListener('input', e => {
+  state.audFechaDesde = e.target.value;
+  $('#btnAudClearDates').style.display = (state.audFechaDesde || state.audFechaHasta) ? '' : 'none';
+  renderAudRegistros();
+});
+$('#inpAudFechaHasta')?.addEventListener('input', e => {
+  state.audFechaHasta = e.target.value;
+  $('#btnAudClearDates').style.display = (state.audFechaDesde || state.audFechaHasta) ? '' : 'none';
+  renderAudRegistros();
+});
+$('#btnAudClearDates')?.addEventListener('click', () => {
+  state.audFechaDesde = '';
+  state.audFechaHasta = '';
+  $('#inpAudFechaDesde').value = '';
+  $('#inpAudFechaHasta').value = '';
+  $('#btnAudClearDates').style.display = 'none';
+  renderAudRegistros();
+});
+$('#btnAudRecargar')?.addEventListener('click', async () => {
+  try {
+    await cargarAuditoria();
+    toast('Datos de auditoría actualizados', 'info');
+  } catch (err) { toast(err.message, 'danger'); }
+});
+
+/* ---------- registros: modal nuevo ---------- */
+
+function actualizarAudPreview() {
+  const area = state.audAreas.find(a => a.id === Number($('#selAudArea').value));
+  const n = new Date();
+  const hoy = `${n.getFullYear()}-${pad2(n.getMonth() + 1)}-${pad2(n.getDate())}`;
+  const delDia = area
+    ? state.audRegistros.filter(r => Number(r.area_id) === Number(area.id) && String(r.fecha).slice(0, 10) === hoy).length
+    : 0;
+  $('#audPreviewCodigo').textContent = audCodigoPreview(audSiglasArea(area?.nombre), delDia + 1);
+  const prod = state.audProductos.find(p => p.id === Number($('#selAudProducto').value));
+  $('#inpAudProductoCodigo').value = prod ? prod.codigo : '';
+}
+
+function actualizarEditAudPreview() {
+  const prod = state.audProductos.find(p => p.id === Number($('#editSelAudProducto').value));
+  $('#editAudProductoCodigo').value = prod ? prod.codigo : '';
+}
+
+$('#selAudArea').addEventListener('change', actualizarAudPreview);
+$('#selAudProducto').addEventListener('change', actualizarAudPreview);
+$('#editSelAudArea').addEventListener('change', actualizarEditAudPreview);
+$('#editSelAudProducto').addEventListener('change', actualizarEditAudPreview);
+
+function abrirAudRegistroNuevo() {
+  ['#selAudArea', '#selAudProducto', '#inpAudCantidad'].forEach(s => $(s).classList.remove('is-invalid'));
+  $('#formAudRegistro').reset();
+  $('#inpAudCantidad').value = 1;
+  $('#selAudArea').selectedIndex = 0;
+  $('#selAudProducto').selectedIndex = 0;
+  $('#inpAudProductoCodigo').value = '';
+  actualizarAudPreview();
+  tick();
+  bootstrap.Modal.getOrCreateInstance($('#modalAudRegistro')).show();
+}
+
+$('#btnAbrirAudRegistro').addEventListener('click', abrirAudRegistroNuevo);
+$('#btnNuevoAudRegistroEmpty').addEventListener('click', abrirAudRegistroNuevo);
+
+$('#formAudRegistro').addEventListener('submit', async e => {
+  e.preventDefault();
+
+  const areaId = parseInt($('#selAudArea').value, 10);
+  const productoId = parseInt($('#selAudProducto').value, 10);
+  const cantidad = parseInt($('#inpAudCantidad').value, 10);
+
+  let ok = true;
+  ['#selAudArea', '#selAudProducto', '#inpAudCantidad'].forEach(s => $(s).classList.remove('is-invalid'));
+  if (!areaId) { $('#selAudArea').classList.add('is-invalid'); ok = false; }
+  if (!productoId) { $('#selAudProducto').classList.add('is-invalid'); ok = false; }
+  if (!(cantidad >= 1)) { $('#inpAudCantidad').classList.add('is-invalid'); ok = false; }
+  if (!ok) { toast('Revisa los campos marcados en rojo', 'warning'); return; }
+
+  const btn = $('#btnGuardarAudRegistro');
+  btn.disabled = true;
+  btn.querySelector('.spinner-border').classList.remove('d-none');
+
+  try {
+    const nuevo = await api('/auditoria/registros', {
+      method: 'POST',
+      body: { area_id: areaId, producto_id: productoId, cantidad }
+    });
+    toast(`Registro ${nuevo.codigo} guardado correctamente`);
+    bootstrap.Modal.getOrCreateInstance($('#modalAudRegistro')).hide();
+    await cargarAuditoria();
+  } catch (err) {
+    toast(err.message, 'danger');
+  } finally {
+    btn.disabled = false;
+    btn.querySelector('.spinner-border').classList.add('d-none');
+  }
+});
+
+/* ---------- registros: modal ver y editar ---------- */
+
+function abrirVerAudRegistro(r) {
+  $('#audVerRegistroCodigo').textContent = `Código ${r.codigo}`;
+  $('#audVerRegArea').textContent = r.area_nombre;
+  $('#audVerRegProducto').textContent = r.producto_nombre;
+  $('#audVerRegProdCodigo').textContent = r.producto_codigo;
+  $('#audVerRegCantidad').innerHTML = `<span class="cantidad-chip pos" style="font-size:1.1rem">${r.cantidad}</span>`;
+  $('#audVerRegFecha').textContent = fmtFecha(r.fecha);
+  $('#audVerRegFechaMod').textContent = r.fecha_modifica ? fmtFecha(r.fecha_modifica) : 'Sin modificaciones';
+  $('#btnAudVerEditar').classList.toggle('d-none', !esAdmin());
+  state.audVerRegistroId = r.id;
+  bootstrap.Modal.getOrCreateInstance($('#modalAudVerRegistro')).show();
+}
+
+$('#btnAudVerEditar')?.addEventListener('click', () => {
+  const r = state.audRegistros.find(x => x.id === state.audVerRegistroId);
+  if (!r) return;
+  bootstrap.Modal.getOrCreateInstance($('#modalAudVerRegistro')).hide();
+  setTimeout(() => abrirAudModalRegistroEdit(r), 300);
+});
+
+function abrirAudModalRegistroEdit(r) {
+  state.audRegistroEdit = r;
+  $('#audEditCodigoChip').textContent = `Código ${r.codigo} · Registrado ${fmtFecha(r.fecha)}`;
+  $('#editSelAudArea').value = r.area_id;
+  $('#editSelAudProducto').value = r.producto_id;
+  $('#editAudCantidad').value = r.cantidad;
+  actualizarEditAudPreview();
+  ['#editSelAudArea', '#editSelAudProducto', '#editAudCantidad'].forEach(s => $(s).classList.remove('is-invalid'));
+  bootstrap.Modal.getOrCreateInstance($('#modalAudRegistroEdit')).show();
+}
+
+$('#btnGuardarAudRegistroEdit').addEventListener('click', async () => {
+  const r = state.audRegistroEdit;
+  if (!r) return;
+
+  const areaId = parseInt($('#editSelAudArea').value, 10);
+  const productoId = parseInt($('#editSelAudProducto').value, 10);
+  const cantidad = parseInt($('#editAudCantidad').value, 10);
+
+  let ok = true;
+  ['#editSelAudArea', '#editSelAudProducto', '#editAudCantidad'].forEach(s => $(s).classList.remove('is-invalid'));
+  if (!areaId) { $('#editSelAudArea').classList.add('is-invalid'); ok = false; }
+  if (!productoId) { $('#editSelAudProducto').classList.add('is-invalid'); ok = false; }
+  if (!(cantidad >= 1)) { $('#editAudCantidad').classList.add('is-invalid'); ok = false; }
+  if (!ok) { toast('Revisa los campos marcados en rojo', 'warning'); return; }
+
+  const btn = $('#btnGuardarAudRegistroEdit');
+  btn.disabled = true;
+  btn.querySelector('.spinner-border').classList.remove('d-none');
+
+  try {
+    await api(`/auditoria/registros/${r.id}`, {
+      method: 'PUT',
+      body: { area_id: areaId, producto_id: productoId, cantidad },
+      headers: { 'X-User-Rol': currentUser?.rol || '' }
+    });
+    toast(`Registro ${r.codigo} actualizado`);
+    bootstrap.Modal.getOrCreateInstance($('#modalAudRegistroEdit')).hide();
+    await cargarAuditoria();
+  } catch (err) {
+    toast(err.message, 'danger');
+  } finally {
+    btn.disabled = false;
+    btn.querySelector('.spinner-border').classList.add('d-none');
+  }
+});
+
+/* ---------- productos ---------- */
+
+function renderAudProductos() {
+  const q = state.audBusquedaProd.toLowerCase();
+  const lista = state.audProductos.filter(p =>
+    !q || `${p.nombre} ${p.codigo}`.toLowerCase().includes(q)
+  );
+  const hay = state.audProductos.length > 0;
+
+  $('#contadorAudProductos').textContent = `${lista.length} de ${state.audProductos.length}`;
+  $('#skeletonAudProductos').classList.add('d-none');
+
+  const vacio = lista.length === 0;
+  $('#emptyAudProductos').classList.toggle('d-none', !vacio);
+  $('#wrapTablaAudProductos').classList.toggle('d-none', vacio);
+  $('#btnNuevoAudProductoEmpty').classList.toggle('d-none', hay);
+  $('#emptyAudProductosTitulo').textContent = !hay ? 'No hay productos' : 'Sin resultados';
+  $('#emptyAudProductos p').textContent = !hay
+    ? 'Crea tu primer producto de auditoría para poder registrarlo.'
+    : 'Prueba con otro término de búsqueda.';
+
+  if (vacio) return;
+
+  $('#tbodyAudProductos').innerHTML = lista.map((p, i) => `
+      <tr style="--d:${Math.min(i * .04, .35)}s">
+        <td><span class="badge badge-code">${esc(p.codigo)}</span></td>
+        <td>
+          <span class="prod-name text-truncate-custom trunc-long has-tip" data-tip="${esc(p.nombre)}">${esc(audNombreCorto(p.nombre, 40))}</span><br>
+          <span class="prod-meta d-md-none">${p.total_registros} registro(s)</span>
+        </td>
+        <td class="text-end text-nowrap">
+          <button class="btn-action" data-action="aud-edit-producto" data-id="${p.id}" title="Editar"><i class="bi bi-pencil-square"></i></button>
+          <button class="btn-action danger" data-action="aud-del-producto" data-id="${p.id}" title="Eliminar"><i class="bi bi-trash3"></i></button>
+        </td>
+      </tr>`).join('');
+
+  const existingMobile = $('#wrapTablaAudProductos').previousElementSibling;
+  if (existingMobile && existingMobile.classList.contains('aud-productos-mobile-cards')) existingMobile.remove();
+  const mobileHTML = renderAudProductosMobile(lista);
+  if (mobileHTML) {
+    const wrapper = document.createElement('div');
+    wrapper.innerHTML = mobileHTML;
+    $('#wrapTablaAudProductos').parentNode.insertBefore(wrapper.firstElementChild, $('#wrapTablaAudProductos'));
+  }
+}
+
+function renderAudProductosMobile(lista) {
+  if (!lista.length) return '';
+  return `<div class="d-md-none aud-productos-mobile-cards">${lista.map((p, i) => `
+    <div class="producto-mobile-card" style="animation-delay:${Math.min(i * .05, .4)}s">
+      <div class="pmc-header">
+        <div class="pmc-icon"><i class="bi bi-boxes"></i></div>
+        <div class="pmc-info">
+          <span class="pmc-name has-tip" data-tip="${esc(p.nombre)}">${esc(audNombreCorto(p.nombre, 26))}</span>
+          <span class="pmc-code"><i class="bi bi-hash"></i>${esc(p.codigo)}</span>
+        </div>
+        <span class="badge badge-count">${p.total_registros}</span>
+      </div>
+      <div class="pmc-actions">
+        <button class="btn-action" data-action="aud-edit-producto" data-id="${p.id}" title="Editar"><i class="bi bi-pencil-square"></i></button>
+        <button class="btn-action danger" data-action="aud-del-producto" data-id="${p.id}" title="Eliminar"><i class="bi bi-trash3"></i></button>
+      </div>
+    </div>`).join('')}</div>`;
+}
+
+$('#inpBuscarAudProducto').addEventListener('input', e => {
+  state.audBusquedaProd = e.target.value;
+  renderAudProductos();
+});
+
+function abrirAudModalProducto(p = null) {
+  state.audProductoEdit = p;
+  $('#tituloModalAudProducto').textContent = p ? 'Editar producto de auditoría' : 'Nuevo producto de auditoría';
+  $('#inpAudCodigoProd').value = p?.codigo || '';
+  $('#inpAudNombreProd').value = p?.nombre || '';
+  ['#inpAudCodigoProd', '#inpAudNombreProd'].forEach(s => $(s).classList.remove('is-invalid'));
+  bootstrap.Modal.getOrCreateInstance($('#modalAudProducto')).show();
+}
+
+$('#btnNuevoAudProducto').addEventListener('click', () => abrirAudModalProducto());
+$('#btnNuevoAudProductoEmpty').addEventListener('click', () => abrirAudModalProducto());
+
+$('#btnGuardarAudProducto').addEventListener('click', async () => {
+  const codigo = $('#inpAudCodigoProd').value.trim().toUpperCase();
+  const nombre = $('#inpAudNombreProd').value.trim();
+
+  let ok = true;
+  ['#inpAudCodigoProd', '#inpAudNombreProd'].forEach(s => $(s).classList.remove('is-invalid'));
+  if (!codigo) { $('#inpAudCodigoProd').classList.add('is-invalid'); ok = false; }
+  if (!nombre) { $('#inpAudNombreProd').classList.add('is-invalid'); ok = false; }
+  if (!ok) { toast('Revisa los campos marcados en rojo', 'warning'); return; }
+
+  const btn = $('#btnGuardarAudProducto');
+  btn.disabled = true;
+  btn.querySelector('.spinner-border').classList.remove('d-none');
+
+  try {
+    const body = { codigo, nombre };
+    if (state.audProductoEdit) {
+      await api(`/auditoria/productos/${state.audProductoEdit.id}`, { method: 'PUT', body });
+      toast(`Producto "${nombre}" actualizado`);
+    } else {
+      await api('/auditoria/productos', { method: 'POST', body });
+      toast(`Producto "${nombre}" creado`);
+    }
+    bootstrap.Modal.getOrCreateInstance($('#modalAudProducto')).hide();
+    await cargarAuditoria();
+  } catch (err) {
+    toast(err.message, 'danger');
+  } finally {
+    btn.disabled = false;
+    btn.querySelector('.spinner-border').classList.add('d-none');
+  }
+});
+
+/* ---------- áreas ---------- */
+
+function renderAudAreas() {
+  const q = state.audBusquedaArea.toLowerCase();
+  const lista = state.audAreas.filter(a => !q || a.nombre.toLowerCase().includes(q));
+  const hay = state.audAreas.length > 0;
+
+  $('#contadorAudAreas').textContent = `${lista.length} de ${state.audAreas.length}`;
+  $('#skeletonAudAreas').classList.add('d-none');
+
+  const vacio = lista.length === 0;
+  $('#emptyAudAreas').classList.toggle('d-none', !vacio);
+  $('#wrapTablaAudAreas').classList.toggle('d-none', vacio);
+  $('#btnNuevoAudAreaEmpty').classList.toggle('d-none', hay);
+  $('#emptyAudAreasTitulo').textContent = !hay ? 'No hay áreas' : 'Sin resultados';
+  $('#emptyAudAreas p').textContent = !hay
+    ? 'Crea tu primera área para poder registrar auditorías.'
+    : 'Prueba con otro término de búsqueda.';
+
+  if (vacio) return;
+
+  $('#tbodyAudAreas').innerHTML = lista.map((a, i) => `
+      <tr style="--d:${Math.min(i * .04, .35)}s">
+        <td>
+          <span class="prod-name text-truncate-custom trunc-long has-tip" data-tip="${esc(a.nombre)}">${esc(a.nombre)}</span><br>
+          <span class="prod-meta d-md-none">${a.total_registros} registro(s)</span>
+        </td>
+        <td class="text-end text-nowrap">
+          <button class="btn-action" data-action="aud-edit-area" data-id="${a.id}" title="Editar"><i class="bi bi-pencil-square"></i></button>
+          <button class="btn-action danger" data-action="aud-del-area" data-id="${a.id}" title="Eliminar"><i class="bi bi-trash3"></i></button>
+        </td>
+      </tr>`).join('');
+
+  const existingMobile = $('#wrapTablaAudAreas').previousElementSibling;
+  if (existingMobile && existingMobile.classList.contains('aud-areas-mobile-cards')) existingMobile.remove();
+  const mobileHTML = renderAudAreasMobile(lista);
+  if (mobileHTML) {
+    const wrapper = document.createElement('div');
+    wrapper.innerHTML = mobileHTML;
+    $('#wrapTablaAudAreas').parentNode.insertBefore(wrapper.firstElementChild, $('#wrapTablaAudAreas'));
+  }
+}
+
+function renderAudAreasMobile(lista) {
+  if (!lista.length) return '';
+  return `<div class="d-md-none aud-areas-mobile-cards">${lista.map((a, i) => `
+    <div class="producto-mobile-card" style="animation-delay:${Math.min(i * .05, .4)}s">
+      <div class="pmc-header">
+        <div class="pmc-icon"><i class="bi bi-diagram-3"></i></div>
+        <div class="pmc-info">
+          <span class="pmc-name">${esc(a.nombre)}</span>
+          <span class="pmc-code">${a.total_registros} registro(s)</span>
+        </div>
+      </div>
+      <div class="pmc-actions">
+        <button class="btn-action" data-action="aud-edit-area" data-id="${a.id}" title="Editar"><i class="bi bi-pencil-square"></i></button>
+        <button class="btn-action danger" data-action="aud-del-area" data-id="${a.id}" title="Eliminar"><i class="bi bi-trash3"></i></button>
+      </div>
+    </div>`).join('')}</div>`;
+}
+
+$('#inpBuscarAudArea').addEventListener('input', e => {
+  state.audBusquedaArea = e.target.value;
+  renderAudAreas();
+});
+
+function abrirAudModalArea(a = null) {
+  state.audAreaEdit = a;
+  $('#tituloModalAudArea').textContent = a ? 'Editar área de auditoría' : 'Nueva área de auditoría';
+  $('#inpAudNombreArea').value = a?.nombre || '';
+  $('#inpAudNombreArea').classList.remove('is-invalid');
+  bootstrap.Modal.getOrCreateInstance($('#modalAudArea')).show();
+}
+
+$('#btnNuevoAudArea').addEventListener('click', () => abrirAudModalArea());
+$('#btnNuevoAudAreaEmpty').addEventListener('click', () => abrirAudModalArea());
+
+$('#btnGuardarAudArea').addEventListener('click', async () => {
+  const nombre = $('#inpAudNombreArea').value.trim();
+  $('#inpAudNombreArea').classList.remove('is-invalid');
+  if (!nombre) {
+    $('#inpAudNombreArea').classList.add('is-invalid');
+    toast('Revisa los campos marcados en rojo', 'warning');
+    return;
+  }
+
+  const btn = $('#btnGuardarAudArea');
+  btn.disabled = true;
+  btn.querySelector('.spinner-border').classList.remove('d-none');
+
+  try {
+    const body = { nombre };
+    if (state.audAreaEdit) {
+      await api(`/auditoria/areas/${state.audAreaEdit.id}`, { method: 'PUT', body });
+      toast(`Área "${nombre}" actualizada`);
+    } else {
+      await api('/auditoria/areas', { method: 'POST', body });
+      toast(`Área "${nombre}" creada`);
+    }
+    bootstrap.Modal.getOrCreateInstance($('#modalAudArea')).hide();
+    await cargarAuditoria();
+  } catch (err) {
+    toast(err.message, 'danger');
+  } finally {
+    btn.disabled = false;
+    btn.querySelector('.spinner-border').classList.add('d-none');
+  }
+});
+
+/* ---------- exportación a excel ---------- */
+
+function resetBtnAudExport(ok = false) {
+  const btn = $('#btnAudExportar');
+  btn.classList.remove('is-loading');
+  btn.querySelector('.be-spinner').classList.add('d-none');
+  if (ok) {
+    btn.classList.add('is-ok');
+    btn.querySelector('.be-ico').classList.add('d-none');
+    btn.querySelector('.be-done').classList.remove('d-none');
+    btn.querySelector('.be-label').textContent = '¡Exportado!';
+    setTimeout(() => {
+      btn.classList.remove('is-ok');
+      btn.querySelector('.be-done').classList.add('d-none');
+      btn.querySelector('.be-ico').classList.remove('d-none');
+      btn.querySelector('.be-label').textContent = 'Exportar';
+      btn.disabled = false;
+      state.audExportando = false;
+    }, 1600);
+  } else {
+    btn.querySelector('.be-label').textContent = 'Exportar';
+    btn.disabled = false;
+    state.audExportando = false;
+  }
+}
+
+async function exportarAudExcel() {
+  if (state.audExportando) return;
+
+  const lista = audRegistrosFiltrados();
+  if (!lista.length) {
+    toast('No hay registros para exportar con los filtros actuales', 'warning');
+    return;
+  }
+
+  state.audExportando = true;
+  const btn = $('#btnAudExportar');
+  btn.disabled = true;
+  btn.classList.add('is-loading');
+  btn.querySelector('.be-spinner').classList.remove('d-none');
+  btn.querySelector('.be-ico').classList.add('d-none');
+  btn.querySelector('.be-label').textContent = 'Generando…';
+
+  try {
+    await new Promise(r => setTimeout(r, 800));
+
+    const wb = new ExcelJS.Workbook();
+    const ws = wb.addWorksheet('Auditoría', { views: [{ state: 'frozen', ySplit: 3 }] });
+
+    ws.columns = [{ width: 24 }, { width: 22 }, { width: 16 }, { width: 38 }, { width: 10 }, { width: 20 }, { width: 20 }];
+
+    ws.mergeCells('A1:G1');
+    const titulo = ws.getCell('A1');
+    titulo.value = 'Registros de auditoría · Suministros Farmacias Peruanas';
+    titulo.font = { name: 'Segoe UI', size: 13, bold: true, color: { argb: 'FF5B21B6' } };
+    titulo.alignment = { vertical: 'middle' };
+    ws.getRow(1).height = 26;
+
+    ws.mergeCells('A2:G2');
+    const sub = ws.getCell('A2');
+    sub.value = `Exportado el ${new Date().toLocaleString('es-PE')} · ${lista.length} registro(s)`;
+    sub.font = { name: 'Segoe UI', size: 9, italic: true, color: { argb: 'FF8A84A3' } };
+
+    const headerRow = ws.getRow(3);
+    headerRow.values = ['Código', 'Área', 'Código producto', 'Producto', 'Cantidad', 'Fecha', 'Fecha modifica'];
+    headerRow.height = 22;
+    headerRow.eachCell(c => {
+      c.font = { name: 'Segoe UI', size: 11, bold: true, color: { argb: 'FFFFFFFF' } };
+      c.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF7C3AED' } };
+      c.alignment = { vertical: 'middle', horizontal: 'center' };
+    });
+
+    lista.forEach((r, i) => {
+      const row = ws.addRow([
+        r.codigo,
+        r.area_nombre,
+        r.producto_codigo,
+        r.producto_nombre,
+        Number(r.cantidad),
+        fmtFecha(r.fecha),
+        r.fecha_modifica ? fmtFecha(r.fecha_modifica) : ''
+      ]);
+      row.getCell(5).alignment = { horizontal: 'center' };
+      row.getCell(1).font = { name: 'Consolas', size: 10 };
+      row.getCell(3).font = { name: 'Consolas', size: 10 };
+      if (i % 2 === 0) {
+        row.eachCell(c => { c.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFF7F5FF' } }; });
+      }
+      row.eachCell(c => { c.border = { bottom: { style: 'hair', color: { argb: 'FFECE7F8' } } }; });
+    });
+
+    const buffer = await wb.xlsx.writeBuffer();
+    const blob = new Blob([buffer], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    const f = new Date();
+    const stamp = `${f.getFullYear()}${pad2(f.getMonth() + 1)}${pad2(f.getDate())}_${pad2(f.getHours())}${pad2(f.getMinutes())}`;
+    a.href = url;
+    a.download = `Auditoria_Registros_${stamp}.xlsx`;
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    URL.revokeObjectURL(url);
+
+    resetBtnAudExport(true);
+    toast(`Excel generado con ${lista.length} registro(s)`);
+  } catch (err) {
+    toast(err.message, 'danger');
+    resetBtnAudExport(false);
+  }
+}
+
+$('#btnAudExportar').addEventListener('click', exportarAudExcel);
+
+/* ---------- tooltip responsivo ---------- */
+
+let appTipEl = null;
+
+function mostrarAppTip(el) {
+  const texto = el.getAttribute('data-tip') || '';
+  if (!texto) return;
+  if (!appTipEl) {
+    appTipEl = document.createElement('div');
+    appTipEl.className = 'app-tooltip';
+    appTipEl.setAttribute('role', 'tooltip');
+    document.body.appendChild(appTipEl);
+  }
+  appTipEl.textContent = texto;
+  appTipEl.classList.add('show');
+  const r = el.getBoundingClientRect();
+  const tw = appTipEl.offsetWidth;
+  const th = appTipEl.offsetHeight;
+  let left = r.left + r.width / 2 - tw / 2;
+  let top = r.bottom + 10;
+  if (left < 10) left = 10;
+  if (left + tw > window.innerWidth - 10) left = window.innerWidth - tw - 10;
+  if (top + th > window.innerHeight - 10) top = r.top - th - 10;
+  appTipEl.style.left = `${left}px`;
+  appTipEl.style.top = `${top}px`;
+}
+
+function ocultarAppTip() {
+  if (appTipEl) appTipEl.classList.remove('show');
+}
+
+document.addEventListener('mouseover', e => {
+  const el = e.target.closest('.has-tip');
+  if (el) mostrarAppTip(el);
+});
+document.addEventListener('mouseout', e => {
+  if (e.target.closest('.has-tip')) ocultarAppTip();
 });
 
 /* ================================================================
@@ -2087,13 +2897,15 @@ function initMainApp() {
 
   (async function init() {
     try {
-      await Promise.all([cargarProductos(), cargarRegistros()]);
+      await Promise.all([cargarProductos(), cargarRegistros(), cargarAuditoria()]);
     } catch (err) {
       toast(err.message, 'danger');
       $('#skeletonRegistros').classList.add('d-none');
       $('#skeletonProductos').classList.add('d-none');
+      $('#skeletonAudRegistros').classList.add('d-none');
       $('#contadorRegistros').textContent = 'Error de conexión';
       $('#contadorProductos').textContent = 'Error';
+      $('#contadorAudRegistros').textContent = 'Error';
     }
   })();
 }

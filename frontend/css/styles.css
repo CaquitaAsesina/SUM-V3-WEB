@@ -3545,3 +3545,73 @@ a:hover { color: var(--purple-700); }
     font-size: var(--font-size-xs);
   }
 }
+
+/* ═══════════════════════════════════════════════════════════════
+   MÓDULO AUDITORÍA
+   ═══════════════════════════════════════════════════════════════ */
+
+/* Select de filtro por área (toolbar de registros de auditoría) */
+.aud-filter-select {
+  width: auto;
+  min-width: 170px;
+  max-width: 240px;
+  border: 1.5px solid var(--line);
+  border-radius: 12px;
+  padding: 9px 14px;
+  font-size: .84rem;
+  color: var(--ink);
+  background-color: #fff;
+  transition: border-color var(--transition-fast), box-shadow var(--transition-fast);
+}
+.aud-filter-select:focus {
+  outline: none;
+  border-color: var(--purple-400);
+  box-shadow: 0 0 0 4px rgba(var(--color-primary-rgb), .12);
+}
+
+/* Chip de área */
+.badge-area {
+  background: #e0f2fe;
+  color: #0369a1;
+  border: 1px solid #bae6fd;
+  white-space: nowrap;
+}
+
+/* Truncado de nombres largos (ancho extendido) */
+.trunc-long { max-width: 280px; }
+
+/* Truncado corto para la columna Producto del sub-módulo Registros */
+.trunc-reg { max-width: 132px; }
+
+/* Tooltip responsivo para nombres completos */
+.app-tooltip {
+  position: fixed;
+  z-index: 1080;
+  max-width: min(320px, calc(100vw - 20px));
+  background: rgba(36, 27, 58, .95);
+  color: #fff;
+  font-size: .8rem;
+  font-weight: 500;
+  line-height: 1.45;
+  padding: 8px 12px;
+  border-radius: 10px;
+  box-shadow: 0 10px 30px -6px rgba(36, 27, 58, .5);
+  pointer-events: none;
+  opacity: 0;
+  transform: translateY(4px);
+  transition: opacity .18s ease, transform .18s ease;
+  white-space: normal;
+  word-break: break-word;
+}
+.app-tooltip.show {
+  opacity: 1;
+  transform: translateY(0);
+}
+
+@media (max-width: 576px) {
+  .aud-filter-select {
+    flex: 1;
+    min-width: 0;
+    max-width: none;
+  }
+}

@@ -16,6 +16,7 @@ app.use('/api/auth', require('./routes/auth.routes'));
 app.use('/api/productos', require('./routes/productos.routes'));
 app.use('/api/registros', require('./routes/registros.routes'));
 app.use('/api/dashboard', require('./routes/dashboard.routes'));
+app.use('/api/auditoria', require('./routes/auditoria.routes'));
 
 app.use('/api', (_req, res) => res.status(404).json({ error: 'Ruta no encontrada' }));
 
@@ -28,13 +29,16 @@ app.use((err, _req, res, _next) => {
 const PORT = process.env.PORT || 3000;
 
 // Ejecutar migraciones antes de iniciar el servidor
-migrarObservaciones().then(() => {
-  app.listen(PORT, () => {
-    console.log(`Servidor corriendo en http://localhost:${PORT}`);
+migrarObservaciones()
+  .then(() => migrarObservaciones.migrarAuditoria())
+  .then(() => {
+    app.listen(PORT, () => {
+      console.log(`Servidor corriendo en http://localhost:${PORT}`);
+    });
+  })
+  .catch(err => {
+    console.error('Error en migración:', err.message);
+    app.listen(PORT, () => {
+      console.log(`Servidor corriendo en http://localhost:${PORT} (sin migración)`);
+    });
   });
-}).catch(err => {
-  console.error('Error en migración:', err.message);
-  app.listen(PORT, () => {
-    console.log(`Servidor corriendo en http://localhost:${PORT} (sin migración)`);
-  });
-});
