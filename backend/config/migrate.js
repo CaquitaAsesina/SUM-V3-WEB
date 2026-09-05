@@ -68,6 +68,34 @@ async function migrarObservaciones() {
 }
 
 /**
+ * Auto-migration: amplía el ENUM de roles de usuarios con el rol AUDITOR
+ * (puede registrar auditorías pero no editar ni eliminar).
+ */
+async function migrarRoles() {
+  const conn = await db.getConnection();
+  try {
+    const [cols] = await conn.query(`
+      SELECT COLUMN_TYPE
+      FROM INFORMATION_SCHEMA.COLUMNS
+      WHERE TABLE_SCHEMA = DATABASE()
+        AND TABLE_NAME = 'usuarios'
+        AND COLUMN_NAME = 'rol'
+    `);
+    const tipo = cols[0]?.COLUMN_TYPE || '';
+    if (!tipo.toUpperCase().includes('AUDITOR')) {
+      await conn.query("ALTER TABLE usuarios MODIFY rol ENUM('ADMIN','CONSULTA','AUDITOR') NOT NULL DEFAULT 'CONSULTA'");
+      console.log('[migración] Rol AUDITOR agregado a usuarios');
+    } else {
+      console.log('[migración] Rol AUDITOR ya existe en usuarios');
+    }
+  } catch (err) {
+    console.error('[migración] Error al ampliar roles:', err.message);
+  } finally {
+    conn.release();
+  }
+}
+
+/**
  * Auto-migration: crea las tablas del modulo Auditoria si no existen.
  * Se ejecuta al iniciar el servidor, despues de migrarObservaciones.
  */
@@ -94,7 +122,7 @@ async function migrarAuditoria() {
 
     await conn.query(`CREATE TABLE IF NOT EXISTS registros_auditoria (
       id             INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
-      codigo         VARCHAR(40)  NULL UNIQUE,
+      codigo         VARCHAR(40)  NULL,
       area_id        INT UNSIGNED NOT NULL,
       producto_id    INT UNSIGNED NOT NULL,
       cantidad       INT UNSIGNED NOT NULL,
@@ -107,10 +135,25 @@ async function migrarAuditoria() {
         FOREIGN KEY (producto_id) REFERENCES productos_auditoria(id)
         ON DELETE CASCADE ON UPDATE CASCADE,
       CONSTRAINT chk_aud_cantidad CHECK (cantidad > 0),
+      INDEX idx_aud_reg_codigo (codigo),
       INDEX idx_aud_reg_area (area_id),
       INDEX idx_aud_reg_producto (producto_id),
       INDEX idx_aud_reg_fecha (fecha)
     ) ENGINE=InnoDB`);
+
+    // El codigo se comparte entre los productos de una misma auditoría.
+    // Si la tabla vino de una versión anterior con UNIQUE en codigo, se convierte a índice normal.
+    const [uniqIdx] = await conn.query(`
+      SELECT INDEX_NAME FROM INFORMATION_SCHEMA.STATISTICS
+      WHERE TABLE_SCHEMA = DATABASE()
+        AND TABLE_NAME = 'registros_auditoria'
+        AND INDEX_NAME = 'codigo'
+    `);
+    if (uniqIdx.length > 0) {
+      await conn.query('ALTER TABLE registros_auditoria DROP INDEX codigo');
+      await conn.query('ALTER TABLE registros_auditoria ADD INDEX idx_aud_reg_codigo (codigo)');
+      console.log('[migración] Índice UNIQUE de registros_auditoria.codigo convertido a índice normal');
+    }
 
     console.log('[migración] Tablas del módulo Auditoría verificadas');
   } catch (err) {
@@ -122,3 +165,4 @@ async function migrarAuditoria() {
 
 module.exports = migrarObservaciones;
 module.exports.migrarAuditoria = migrarAuditoria;
+module.exports.migrarRoles = migrarRoles;

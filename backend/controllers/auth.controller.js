@@ -133,8 +133,8 @@ exports.crearUsuario = async (req, res) => {
     return res.status(400).json({ error: 'Usuario, contraseña y nombre son obligatorios' });
   }
 
-  if (!['ADMIN', 'CONSULTA'].includes(rol)) {
-    return res.status(400).json({ error: 'Rol inválido. Use ADMIN o CONSULTA' });
+  if (!['ADMIN', 'CONSULTA', 'AUDITOR'].includes(rol)) {
+    return res.status(400).json({ error: 'Rol inválido. Use ADMIN, AUDITOR o CONSULTA' });
   }
 
   if (contrasena.length < 6) {
@@ -198,7 +198,7 @@ exports.activarUsuario = async (req, res) => {
   if (!Number.isInteger(id) || id <= 0) return res.status(400).json({ error: 'Identificador inválido' });
 
   const rol = String(req.body?.rol ?? 'CONSULTA').toUpperCase();
-  if (!['ADMIN', 'CONSULTA'].includes(rol)) {
+  if (!['ADMIN', 'CONSULTA', 'AUDITOR'].includes(rol)) {
     return res.status(400).json({ error: 'Rol inválido' });
   }
 

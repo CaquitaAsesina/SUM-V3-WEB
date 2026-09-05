@@ -89,12 +89,14 @@ CREATE TABLE productos_auditoria (
 -- ------------------------------------------------------------
 -- TABLA: registros_auditoria
 -- Registros del modulo Auditoria.
--- El codigo se genera automaticamente: AU-<3 letras del area>-<fecha y hora>
+-- El codigo se genera automaticamente: AU-<3 letras del area>-<fecha>-<NN>.
+-- Varios productos de una misma auditoría COMPARTEN el mismo codigo,
+-- por eso la columna no es UNIQUE (la unicidad la garantiza el correlativo).
 -- fecha_modifica se llena automaticamente al editar (solo admin).
 -- ------------------------------------------------------------
 CREATE TABLE registros_auditoria (
   id             INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
-  codigo         VARCHAR(40)  NULL UNIQUE,
+  codigo         VARCHAR(40)  NULL,
   area_id        INT UNSIGNED NOT NULL,
   producto_id    INT UNSIGNED NOT NULL,
   cantidad       INT UNSIGNED NOT NULL,
@@ -107,6 +109,7 @@ CREATE TABLE registros_auditoria (
     FOREIGN KEY (producto_id) REFERENCES productos_auditoria(id)
     ON DELETE CASCADE ON UPDATE CASCADE,
   CONSTRAINT chk_aud_cantidad CHECK (cantidad > 0),
+  INDEX idx_aud_reg_codigo (codigo),
   INDEX idx_aud_reg_area (area_id),
   INDEX idx_aud_reg_producto (producto_id),
   INDEX idx_aud_reg_fecha (fecha)
@@ -121,7 +124,7 @@ CREATE TABLE usuarios (
   usuario        VARCHAR(50)  NOT NULL UNIQUE,
   contrasena     VARCHAR(255) NOT NULL,
   nombre_completo VARCHAR(120) NOT NULL,
-  rol            ENUM('ADMIN','CONSULTA') NOT NULL DEFAULT 'CONSULTA',
+  rol            ENUM('ADMIN','CONSULTA','AUDITOR') NOT NULL DEFAULT 'CONSULTA',
   activo         TINYINT(1)   NOT NULL DEFAULT 1,
   ultimo_acceso  DATETIME     NULL,
   creado_en      DATETIME     NOT NULL DEFAULT CURRENT_TIMESTAMP,

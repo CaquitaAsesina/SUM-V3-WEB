@@ -919,11 +919,11 @@
               <tr>
                 <th>Código</th>
                 <th>Área</th>
-                <th>Código producto</th>
+                <th>Código</th>
                 <th>Producto</th>
-                <th class="text-center">Cant.</th>
+                <th class="text-center">Cantidad</th>
                 <th>Fecha</th>
-                <th>Fecha modifica</th>
+                <th>Fecha modificacion</th>
                 <th class="text-end">Acciones</th>
               </tr>
             </thead>
@@ -1097,34 +1097,28 @@
 
             <div class="row g-3 mt-1">
               <div class="col-12 fx-item" style="--d:.20s">
-                <label class="form-label" for="selProducto">Producto</label>
-                <select class="form-select" id="selProducto" required>
-                  <option value="" selected disabled>Cargando productos…</option>
-                </select>
-                <div class="invalid-feedback">Selecciona un producto de la lista desplegable.</div>
+                <label class="form-label">Productos del movimiento</label>
+                <div id="listaProductosRegistro"></div>
                 <div class="d-none mt-2 p-2 rounded-3 warn-box" id="warnSinProductos">
                   <i class="bi bi-exclamation-triangle me-1"></i>
                   Aún no hay productos. Crearlos en el módulo <b>Productos</b>.
                 </div>
+                <button type="button" class="btn btn-ghost btn-sm mt-2" id="btnAgregarProductoRegistro">
+                  <i class="bi bi-plus-lg me-1"></i>Agregar producto
+                </button>
               </div>
-              <div class="col-6 col-md-5 fx-item" style="--d:.27s">
-                <label class="form-label" for="inpCantidad">Cantidad</label>
-                <input type="number" class="form-control" id="inpCantidad" min="1" max="1000000" step="1" value="1"
-                  inputmode="numeric">
-                <div class="invalid-feedback">Debe ser mayor a 0.</div>
-              </div>
-              <div class="col-6 col-md-7 fx-item" style="--d:.32s">
+              <div class="col-12 col-md-5 fx-item" style="--d:.27s">
                 <label class="form-label" for="inpPlaca">Placa del vehículo</label>
                 <input type="text" class="form-control text-uppercase fw-semibold" id="inpPlaca" placeholder="ABC-123"
                   maxlength="7" autocomplete="off" spellcheck="false">
                 <div class="invalid-feedback">Formato inválido. Ejemplo: <b>ABC-123</b>.</div>
               </div>
-              <div class="col-12 col-md-6 fx-item" style="--d:.37s">
+              <div class="col-12 col-md-7 fx-item" style="--d:.37s">
                 <label class="form-label" for="inpGuia">Número de guía</label>
                 <input type="text" class="form-control fw-semibold" id="inpGuia" placeholder="Ej. 119922884456" maxlength="30" inputmode="numeric" autocomplete="off" spellcheck="false">
                 <div class="invalid-feedback">Obligatorio: solo dígitos, entre 4 y 30.</div>
               </div>
-              <div class="col-12 col-md-6 fx-item" style="--d:.40s">
+              <div class="col-12 fx-item" style="--d:.40s">
                 <label class="form-label" for="inpProveedor">Proveedor</label>
                 <input type="text" class="form-control" id="inpProveedor" list="listaProveedores"
                   maxlength="120" placeholder="Ej. PACSE, Distribuidora XYZ…">
@@ -1370,6 +1364,7 @@
                 <label class="form-label" for="selRol">Rol</label>
                 <select class="form-select" id="selRol">
                   <option value="CONSULTA">Consulta (solo lectura)</option>
+                  <option value="AUDITOR">Auditor (registra auditorías)</option>
                   <option value="ADMIN">Administrador (acceso total)</option>
                 </select>
               </div>
@@ -1440,6 +1435,7 @@
             <label class="form-label">Asignar rol</label>
             <select class="form-select" id="selActivarRol">
               <option value="CONSULTA">Consulta (solo lectura)</option>
+              <option value="AUDITOR">Auditor (registra auditorías)</option>
               <option value="ADMIN">Administrador (acceso total)</option>
             </select>
           </div>
@@ -1461,7 +1457,7 @@
           <div class="rh-icon"><i class="bi bi-clipboard-plus"></i></div>
           <div class="flex-grow-1">
             <h5 id="modalAudRegistroLabel">Registrar auditoría</h5>
-            <small><i class="bi bi-magic me-1"></i>Código AU correlativo por área y fecha automática</small>
+            <small><i class="bi bi-magic me-1"></i>Varios productos comparten un solo código AU por área y fecha</small>
           </div>
           <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Cerrar"></button>
         </div>
@@ -1477,26 +1473,15 @@
                 <div class="invalid-feedback">Selecciona un área de la lista.</div>
               </div>
               <div class="col-12 fx-item" style="--d:.20s">
-                <label class="form-label" for="selAudProducto">Producto</label>
-                <select class="form-select" id="selAudProducto" required>
-                  <option value="" selected disabled>Cargando productos…</option>
-                </select>
-                <div class="invalid-feedback">Selecciona un producto de la lista.</div>
+                <label class="form-label">Productos de la auditoría</label>
+                <div id="audProductosLista"></div>
                 <div class="d-none mt-2 p-2 rounded-3 warn-box" id="audWarnSinProductos">
                   <i class="bi bi-exclamation-triangle me-1"></i>
                   Aún no hay productos. Créalos en el sub-módulo <b>Productos</b>.
                 </div>
-              </div>
-              <div class="col-12 col-md-6 fx-item" style="--d:.27s">
-                <label class="form-label" for="inpAudProductoCodigo">Código del producto</label>
-                <input type="text" class="form-control fw-semibold" id="inpAudProductoCodigo" readonly
-                  placeholder="Se completa al elegir producto">
-              </div>
-              <div class="col-12 col-md-6 fx-item" style="--d:.32s">
-                <label class="form-label" for="inpAudCantidad">Cantidad</label>
-                <input type="number" class="form-control" id="inpAudCantidad" min="1" max="1000000" step="1" value="1"
-                  inputmode="numeric">
-                <div class="invalid-feedback">Debe ser mayor a 0.</div>
+                <button type="button" class="btn btn-ghost btn-sm mt-2" id="btnAudAgregarProducto">
+                  <i class="bi bi-plus-lg me-1"></i>Agregar producto
+                </button>
               </div>
             </div>
 

@@ -11,21 +11,30 @@ function soloAdmin(req, res, next) {
   next();
 }
 
-// Áreas
-router.get('/areas', ctrl.listarAreas);
-router.post('/areas', ctrl.crearArea);
-router.put('/areas/:id', ctrl.actualizarArea);
-router.delete('/areas/:id', ctrl.eliminarArea);
+/** ADMIN y AUDITOR pueden registrar auditorías (crear registros) */
+function puedeRegistrar(req, res, next) {
+  const rol = String(req.get('x-user-rol') || '').toUpperCase();
+  if (rol !== 'ADMIN' && rol !== 'AUDITOR') {
+    return res.status(403).json({ error: 'No tienes permiso para registrar auditorías' });
+  }
+  next();
+}
 
-// Productos (solo código y nombre)
+// Áreas (mantenimiento exclusivo del administrador)
+router.get('/areas', ctrl.listarAreas);
+router.post('/areas', soloAdmin, ctrl.crearArea);
+router.put('/areas/:id', soloAdmin, ctrl.actualizarArea);
+router.delete('/areas/:id', soloAdmin, ctrl.eliminarArea);
+
+// Productos (solo código y nombre; mantenimiento del administrador)
 router.get('/productos', ctrl.listarProductos);
-router.post('/productos', ctrl.crearProducto);
-router.put('/productos/:id', ctrl.actualizarProducto);
-router.delete('/productos/:id', ctrl.eliminarProducto);
+router.post('/productos', soloAdmin, ctrl.crearProducto);
+router.put('/productos/:id', soloAdmin, ctrl.actualizarProducto);
+router.delete('/productos/:id', soloAdmin, ctrl.eliminarProducto);
 
 // Registros
 router.get('/registros', ctrl.listarRegistros);
-router.post('/registros', ctrl.crearRegistro);
+router.post('/registros', puedeRegistrar, ctrl.crearRegistro);
 router.put('/registros/:id', soloAdmin, ctrl.actualizarRegistro);
 router.delete('/registros/:id', soloAdmin, ctrl.eliminarRegistro);
 

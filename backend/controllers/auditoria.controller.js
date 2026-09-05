@@ -17,16 +17,18 @@ function normalizarSiglas(nombre) {
 function pad(n) { return String(n).padStart(2, '0'); }
 
 /**
- * Código AU-AAA-AAAA-MM-DD-NN donde NN es el correlativo de registros
- * de esa área en el día (01, 02, ...). Ej: AU-ORD-2026-09-04-01
+ * Código AU-AAA-AAAA-MM-DD-NN donde NN es el correlativo de auditorías
+ * (lotes) de esa área en el día (01, 02, ...). Ej: AU-ORD-2026-09-04-01
+ * Todas las filas de una misma auditoría comparten el mismo código.
  * La fecha se toma del reloj de la BD (CURDATE) para que coincida
  * siempre con la columna fecha del registro.
  */
 async function codigoSiguiente(conn, siglas, areaId) {
   const [[{ hoy, n }]] = await conn.execute(
     `SELECT CURDATE() AS hoy,
-            (SELECT COUNT(*) FROM registros_auditoria
-              WHERE area_id = ? AND fecha >= CURDATE() AND fecha < CURDATE() + INTERVAL 1 DAY) AS n`,
+            (SELECT COUNT(DISTINCT codigo) FROM registros_auditoria
+              WHERE area_id = ? AND codigo IS NOT NULL
+                AND fecha >= CURDATE() AND fecha < CURDATE() + INTERVAL 1 DAY) AS n`,
     [areaId]
   );
   return `AU-${siglas}-${hoy}-${pad(n + 1)}`;
@@ -259,41 +261,94 @@ async function validarRegistro(conn, body) {
   return { areaId, productoId, cantidad, siglas: normalizarSiglas(area.nombre) };
 }
 
+/** Valida una auditoría completa: un área + una lista de productos con cantidad */
+async function validarBatchRegistro(conn, body) {
+  const areaId = Number(body?.area_id);
+  if (!Number.isInteger(areaId) || areaId <= 0) {
+    return { error: 'Selecciona un área válida de la lista' };
+  }
+  const [[area]] = await conn.execute('SELECT id, nombre FROM areas_auditoria WHERE id = ? LIMIT 1', [areaId]);
+  if (!area) return { error: 'El área seleccionada no existe' };
+
+  // Formato nuevo: productos: [{producto_id, cantidad}, ...]
+  // Formato legado (una sola fila): producto_id + cantidad
+  let items;
+  if (Array.isArray(body?.productos)) {
+    items = body.productos;
+  } else if (body?.producto_id) {
+    items = [{ producto_id: body.producto_id, cantidad: body.cantidad }];
+  } else {
+    return { error: 'Agrega al menos un producto a la auditoría' };
+  }
+
+  if (!items.length) return { error: 'Agrega al menos un producto a la auditoría' };
+  if (items.length > 50) return { error: 'Máximo 50 productos por auditoría' };
+
+  const validados = [];
+  const vistos = new Set();
+  for (const it of items) {
+    const productoId = Number(it?.producto_id);
+    const cantidad = Number(it?.cantidad);
+
+    if (!Number.isInteger(productoId) || productoId <= 0) {
+      return { error: 'Selecciona un producto válido de la lista' };
+    }
+    const [[prod]] = await conn.execute('SELECT id FROM productos_auditoria WHERE id = ? LIMIT 1', [productoId]);
+    if (!prod) return { error: 'Uno de los productos seleccionados no existe' };
+
+    if (!Number.isInteger(cantidad) || cantidad <= 0 || cantidad > 1000000) {
+      return { error: 'Las cantidades deben ser números enteros mayores a 0' };
+    }
+
+    if (vistos.has(productoId)) {
+      return { error: 'No puedes repetir el mismo producto dos veces en la misma auditoría' };
+    }
+    vistos.add(productoId);
+    validados.push({ productoId, cantidad });
+  }
+
+  return { areaId, siglas: normalizarSiglas(area.nombre), items: validados };
+}
+
 exports.crearRegistro = async (req, res) => {
   const conn = await db.getConnection();
   try {
-    const datos = await validarRegistro(conn, req.body);
-    if (datos.error) return res.status(400).json({ error: datos.error });
+    const batch = await validarBatchRegistro(conn, req.body);
+    if (batch.error) return res.status(400).json({ error: batch.error });
 
-    // El correlativo se calcula ANTES de insertar (registros del área en el día actual)
-    let insertId = null;
-    let codigo = null;
-    for (let intento = 0; intento < 20 && !insertId; intento++) {
-      codigo = await codigoSiguiente(conn, datos.siglas, datos.areaId);
-      try {
-        const [ins] = await conn.execute(
-          'INSERT INTO registros_auditoria (codigo, area_id, producto_id, cantidad) VALUES (?, ?, ?, ?)',
-          [codigo, datos.areaId, datos.productoId, datos.cantidad]
-        );
-        insertId = ins.insertId;
-      } catch (err) {
-        // Dos inserciones simultáneas pidieron el mismo correlativo: reintentar
-        if (err.code === 'ER_DUP_ENTRY') continue;
-        throw err;
-      }
+    // Un solo código para toda la auditoría; todas las filas lo comparten.
+    // Se bloquea la fila del área (SELECT ... FOR UPDATE) para serializar la
+    // generación de correlativos y evitar que dos auditorías simultáneas de la
+    // misma área tomen el mismo código.
+    await conn.beginTransaction();
+    const [[areaLock]] = await conn.execute(
+      'SELECT id FROM areas_auditoria WHERE id = ? FOR UPDATE',
+      [batch.areaId]
+    );
+    if (!areaLock) {
+      await conn.rollback();
+      return res.status(400).json({ error: 'El área seleccionada no existe' });
     }
-    if (!insertId) {
-      return res.status(409).json({ error: 'No se pudo generar un código único para el registro' });
+
+    const codigo = await codigoSiguiente(conn, batch.siglas, batch.areaId);
+    for (const item of batch.items) {
+      await conn.execute(
+        'INSERT INTO registros_auditoria (codigo, area_id, producto_id, cantidad) VALUES (?, ?, ?, ?)',
+        [codigo, batch.areaId, item.productoId, item.cantidad]
+      );
     }
+    await conn.commit();
 
     const [rows] = await conn.execute(
       `SELECT r.*, a.nombre AS area_nombre, p.codigo AS producto_codigo, p.nombre AS producto_nombre
          FROM registros_auditoria r
          JOIN areas_auditoria a ON a.id = r.area_id
          JOIN productos_auditoria p ON p.id = r.producto_id
-        WHERE r.id = ?`, [insertId]);
-    res.status(201).json(rows[0]);
+        WHERE r.codigo = ?
+        ORDER BY r.id ASC`, [codigo]);
+    res.status(201).json({ codigo, cantidad_registros: rows.length, registros: rows });
   } catch (err) {
+    await conn.rollback();
     console.error('auditoria.crearRegistro:', err.message);
     res.status(500).json({ error: 'No se pudo guardar el registro de auditoría' });
   } finally {

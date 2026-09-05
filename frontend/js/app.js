@@ -71,6 +71,7 @@ async function handleLogin(e) {
 
     // Success - store user and show welcome animation
     currentUser = response.usuario;
+    renderAudPermisos();
     showWelcomeAnimation(username, currentUser.nombre_completo);
   } catch (err) {
     // Invalid credentials
@@ -549,14 +550,35 @@ async function cargarProductos() {
 
 function poblarSelects() {
   const hay = state.productos.length > 0;
+  const base = `<option value="" selected disabled>${hay ? 'Selecciona un producto…' : 'No hay productos disponibles'}</option>`;
+  const opciones = p =>
+    `<option value="${p.id}">${esc(p.codigo)} · ${esc(audNombreCorto(p.nombre, 24))}</option>`;
+  $('#editSelProducto').innerHTML = base + state.productos.filter(p => p.activo).map(opciones).join('');
+  $('#warnSinProductos').classList.toggle('d-none', hay);
+}
+
+/* Opciones de producto para una fila (select compacto: CÓDIGO · NOMBRE) */
+function opcionesProductoRegistro(sel = null) {
+  const base = `<option value="" selected disabled>${state.productos.length ? 'Selecciona un producto…' : 'No hay productos disponibles'}</option>`;
   const opciones = state.productos
     .filter(p => p.activo)
-    .map(p => `<option value="${p.id}">${esc(p.nombre)} · ${esc(p.unidad)}</option>`)
-    .join('');
-  const base = `<option value="" selected disabled>${hay ? 'Selecciona un producto…' : 'No hay productos disponibles'}</option>`;
-  $('#selProducto').innerHTML = base + opciones;
-  $('#editSelProducto').innerHTML = base + opciones;
-  $('#warnSinProductos').classList.toggle('d-none', hay);
+    .map(p =>
+      `<option value="${p.id}" ${Number(sel) === Number(p.id) ? 'selected' : ''}>${esc(p.codigo)} · ${esc(audNombreCorto(p.nombre, 24))}</option>`
+    ).join('');
+  return base + opciones;
+}
+
+function filaProductoRegistroHTML(prodId = null, cantidad = 1) {
+  return `<div class="prod-row">
+    <select class="form-select prod-row-select" aria-label="Producto">${opcionesProductoRegistro(prodId)}</select>
+    <input type="number" class="form-control prod-row-cant" min="1" max="1000000" step="1" value="${cantidad}"
+      inputmode="numeric" aria-label="Cantidad">
+    <button type="button" class="btn-action danger prod-row-remove" title="Quitar producto"><i class="bi bi-x-lg"></i></button>
+  </div>`;
+}
+
+function primeraFilaProductoRegistro() {
+  return document.querySelector('#listaProductosRegistro .prod-row');
 }
 
 function renderProductos() {
@@ -584,7 +606,7 @@ function renderProductos() {
       <tr style="--d:${Math.min(i * .04, .35)}s">
         <td><span class="badge badge-code">${esc(p.codigo)}</span></td>
         <td>
-          <span class="prod-name">${esc(p.nombre)}</span><br>
+          <span class="prod-name text-truncate-custom trunc-long has-tip" data-tip="${esc(p.nombre)}">${esc(audNombreCorto(p.nombre, 40))}</span><br>
           <span class="prod-meta d-md-none">${esc(p.observaciones || '—')}</span>
         </td>
         <td class="d-none d-md-table-cell"><span class="text-muted-lila small">${esc(p.observaciones || '—')}</span></td>
@@ -802,7 +824,7 @@ function renderRegistros() {
         <td><span class="badge badge-code">${esc(r.codigo)}</span></td>
         <td><span class="badge ${r.tipo === 'ENTREGA' ? 'badge-entrega' : 'badge-devolucion'}">${r.tipo === 'ENTREGA' ? 'Entrega' : 'Devolución'}</span></td>
         <td>
-          <span class="prod-name text-truncate-custom" title="${esc(r.producto_nombre)}">${esc(r.producto_nombre.length > 20 ? r.producto_nombre.slice(0, 18) + '…' : r.producto_nombre)}</span><br>
+          <span class="prod-name text-truncate-custom trunc-reg has-tip" data-tip="${esc(r.producto_nombre)}">${esc(audNombreCorto(r.producto_nombre, 16))}</span><br>
           <span class="prod-meta">${esc(r.producto_codigo)} · ${esc(r.unidad)}</span>
         </td>
         <td class="text-center">
@@ -985,13 +1007,14 @@ async function exportarRegistrosExcel() {
 
 $('#btnExportar').addEventListener('click', exportarRegistrosExcel);
 
-/* máscara automática de placa ABC-123 */
+/* máscara automática de placa ABC-123 (usa la primera fila de producto) */
 function actualizarPreviewCodigo() {
   const el = $('#previewCodigo');
   if (!el) return;
   const placa = $('#inpPlaca').value.toUpperCase().replace(/[^A-Z0-9]/g, '');
-  const pid = $('#selProducto').value;
-  const cantidad = parseInt($('#inpCantidad').value, 10);
+  const fila = primeraFilaProductoRegistro();
+  const pid = fila ? fila.querySelector('.prod-row-select').value : '';
+  const cantidad = fila ? parseInt(fila.querySelector('.prod-row-cant').value, 10) : NaN;
   if (!placa || placa.length < 6 || !pid || !(cantidad >= 1)) {
     el.textContent = `${placa || '···'}-····`;
     return;
@@ -1014,8 +1037,6 @@ $('#inpPlaca').addEventListener('input', e => {
   e.target.value = v;
   actualizarPreviewCodigo();
 });
-$('#selProducto').addEventListener('change', actualizarPreviewCodigo);
-$('#inpCantidad').addEventListener('input', actualizarPreviewCodigo);
 $('#editPlaca').addEventListener('input', e => {
   let v = e.target.value.toUpperCase().replace(/[^A-Z0-9]/g, '').slice(0, 6);
   if (v.length > 3) v = `${v.slice(0, 3)}-${v.slice(3)}`;
@@ -1030,8 +1051,8 @@ const hintsTipo = {
 function actualizarHintDevolucion() {
   const tipo = $('input[name="tipo"]:checked')?.value;
   if (tipo !== 'DEVOLUCION') return;
-  const selProd = $('#selProducto');
-  const productoId = parseInt(selProd.value, 10);
+  const fila = primeraFilaProductoRegistro();
+  const productoId = fila ? parseInt(fila.querySelector('.prod-row-select').value, 10) : 0;
   const hint = $('#hintTipo');
   if (productoId) {
     const producto = state.productos.find(p => p.id === productoId);
@@ -1047,15 +1068,42 @@ $$('input[name="tipo"]').forEach(r => r.addEventListener('change', () => {
   actualizarHintDevolucion();
 }));
 
-$('#selProducto').addEventListener('change', actualizarHintDevolucion);
+/* Filas dinámicas de productos: agregar / quitar y actualizar preview/hint */
+$('#listaProductosRegistro').addEventListener('click', e => {
+  const btn = e.target.closest('.prod-row-remove');
+  if (!btn) return;
+  const filas = $('#listaProductosRegistro').querySelectorAll('.prod-row');
+  if (filas.length <= 1) {
+    toast('El movimiento debe tener al menos un producto', 'warning');
+    return;
+  }
+  btn.closest('.prod-row').remove();
+  actualizarPreviewCodigo();
+  actualizarHintDevolucion();
+});
+$('#btnAgregarProductoRegistro').addEventListener('click', () => {
+  if (!state.productos.filter(p => p.activo).length) {
+    toast('Primero crea productos en el módulo Productos', 'warning');
+    return;
+  }
+  $('#listaProductosRegistro').insertAdjacentHTML('beforeend', filaProductoRegistroHTML());
+});
+$('#listaProductosRegistro').addEventListener('change', e => {
+  if (e.target.matches('.prod-row-select, .prod-row-cant')) {
+    actualizarPreviewCodigo();
+    actualizarHintDevolucion();
+  }
+});
 
 function abrirRegistroNuevo() {
-  ['#selProducto', '#inpCantidad', '#inpPlaca', '#inpGuia', '#inpProveedor'].forEach(s => $(s).classList.remove('is-invalid'));
+  ['#inpPlaca', '#inpGuia', '#inpProveedor'].forEach(s => $(s).classList.remove('is-invalid'));
   $('#formRegistro').reset();
   $('#tipoEntrega').checked = true;
   $('#hintTipo').innerHTML = hintsTipo.ENTREGA;
-  $('#inpCantidad').value = 1;
-  $('#selProducto').selectedIndex = 0;
+  $('#listaProductosRegistro').innerHTML = '';
+  if (state.productos.some(p => p.activo)) {
+    $('#listaProductosRegistro').insertAdjacentHTML('beforeend', filaProductoRegistroHTML());
+  }
   actualizarPreviewCodigo();
   tick();
   bootstrap.Modal.getOrCreateInstance($('#modalNuevoRegistro')).show();
@@ -1068,20 +1116,11 @@ $('#formRegistro').addEventListener('submit', async e => {
   e.preventDefault();
 
   const tipo = $('input[name="tipo"]:checked').value;
-  const selProducto = $('#selProducto');
-  const inpCantidad = $('#inpCantidad');
   const inpPlaca = $('#inpPlaca');
-  const productoId = parseInt(selProducto.value, 10);
-  const cantidad = parseInt(inpCantidad.value, 10);
   const placa = inpPlaca.value.trim().toUpperCase();
 
   let ok = true;
-  selProducto.classList.remove('is-invalid');
-  inpCantidad.classList.remove('is-invalid');
   inpPlaca.classList.remove('is-invalid');
-
-  if (!productoId) { selProducto.classList.add('is-invalid'); ok = false; }
-  if (!(cantidad >= 1)) { inpCantidad.classList.add('is-invalid'); ok = false; }
   if (!validarPlaca(placa)) { inpPlaca.classList.add('is-invalid'); ok = false; }
 
   const inpGuia = $('#inpGuia');
@@ -1089,39 +1128,66 @@ $('#formRegistro').addEventListener('submit', async e => {
   inpGuia.classList.remove('is-invalid');
   if (!/^\d{4,30}$/.test(guia)) { inpGuia.classList.add('is-invalid'); ok = false; }
 
-  // Validar stock para devoluciones
-  if (tipo === 'DEVOLUCION' && ok && productoId) {
-    const producto = state.productos.find(p => p.id === productoId);
-    if (producto && cantidad > Number(producto.stock || 0)) {
-      selProducto.classList.add('is-invalid');
-      toast(`No puedes devolver ${cantidad} unidades. Solo hay ${Number(producto.stock)} disponibles.`, 'danger');
-      return;
+  // Recoger las filas de productos
+  const filas = [...$('#listaProductosRegistro').querySelectorAll('.prod-row')];
+  const productos = [];
+  filas.forEach(fila => {
+    const sel = fila.querySelector('.prod-row-select');
+    const cant = fila.querySelector('.prod-row-cant');
+    const productoId = parseInt(sel.value, 10);
+    const cantidad = parseInt(cant.value, 10);
+    sel.classList.remove('is-invalid');
+    cant.classList.remove('is-invalid');
+    if (!productoId) { sel.classList.add('is-invalid'); ok = false; return; }
+    if (!(cantidad >= 1)) { cant.classList.add('is-invalid'); ok = false; return; }
+    productos.push({ productoId, cantidad, nombre: state.productos.find(p => p.id === productoId)?.nombre || '' });
+  });
+
+  // Validar stock para devoluciones (por fila)
+  if (tipo === 'DEVOLUCION' && ok) {
+    for (const item of productos) {
+      const producto = state.productos.find(p => p.id === item.productoId);
+      if (producto && item.cantidad > Number(producto.stock || 0)) {
+        toast(`No puedes devolver ${item.cantidad} de "${item.nombre}". Solo hay ${Number(producto.stock)} disponibles.`, 'danger');
+        ok = false;
+        break;
+      }
     }
   }
 
   if (!ok) { toast('Revisa los campos marcados en rojo', 'warning'); return; }
+  if (!productos.length) { toast('Agrega al menos un producto al movimiento', 'warning'); return; }
 
   const btn = $('#btnGuardarRegistro');
   btn.disabled = true;
   btn.querySelector('.spinner-border').classList.remove('d-none');
 
+  const baseBody = {
+    tipo,
+    placa,
+    numero_guia: guia,
+    proveedor: $('#inpProveedor').value.trim()
+  };
+
   try {
-    const nuevo = await api('/registros', {
-      method: 'POST',
-      body: {
-        tipo,
-        producto_id: productoId,
-        cantidad,
-        placa,
-        numero_guia: $('#inpGuia').value.replace(/[\s.-]/g, ''),
-        proveedor: $('#inpProveedor').value.trim()
-      }
-    });
-    toast(`Registro ${nuevo.codigo} guardado correctamente`);
+    const codigos = [];
+    for (const item of productos) {
+      const nuevo = await api('/registros', {
+        method: 'POST',
+        body: { ...baseBody, producto_id: item.productoId, cantidad: item.cantidad }
+      });
+      codigos.push(nuevo.codigo);
+    }
+    toast(codigos.length > 1
+      ? `${codigos.length} registros guardados (${codigos[0]}…${codigos[codigos.length - 1]})`
+      : `Registro ${codigos[0]} guardado correctamente`);
     e.target.reset();
     $('#tipoEntrega').checked = true;
     $('#hintTipo').innerHTML = hintsTipo.ENTREGA;
-    selProducto.selectedIndex = 0;
+    $('#listaProductosRegistro').innerHTML = '';
+    if (state.productos.some(p => p.activo)) {
+      $('#listaProductosRegistro').insertAdjacentHTML('beforeend', filaProductoRegistroHTML());
+    }
     actualizarPreviewCodigo();
     bootstrap.Modal.getOrCreateInstance($('#modalNuevoRegistro')).hide();
     await cargarRegistros();
@@ -1295,9 +1361,17 @@ document.addEventListener('click', async e => {
     });
 
   } else if (action === 'aud-edit-producto') {
+    if (!esAdmin()) {
+      toast('Solo el administrador puede editar productos de auditoría', 'warning');
+      return;
+    }
     abrirAudModalProducto(state.audProductos.find(p => p.id === id));
 
   } else if (action === 'aud-del-producto') {
+    if (!esAdmin()) {
+      toast('Solo el administrador puede eliminar productos de auditoría', 'warning');
+      return;
+    }
     const p = state.audProductos.find(x => x.id === id);
     if (!p) return;
     const n = p.total_registros ?? 0;
@@ -1314,9 +1388,17 @@ document.addEventListener('click', async e => {
     });
 
   } else if (action === 'aud-edit-area') {
+    if (!esAdmin()) {
+      toast('Solo el administrador puede editar áreas de auditoría', 'warning');
+      return;
+    }
     abrirAudModalArea(state.audAreas.find(a => a.id === id));
 
   } else if (action === 'aud-del-area') {
+    if (!esAdmin()) {
+      toast('Solo el administrador puede eliminar áreas de auditoría', 'warning');
+      return;
+    }
     const a = state.audAreas.find(x => x.id === id);
     if (!a) return;
     const n = a.total_registros ?? 0;
@@ -1393,6 +1475,18 @@ function esAdmin() {
   return !!(currentUser && currentUser.rol === 'ADMIN');
 }
 
+/** ADMIN y AUDITOR pueden registrar auditorías (crear registros) */
+function puedeRegistrarAud() {
+  return !!(currentUser && ['ADMIN', 'AUDITOR'].includes(currentUser.rol));
+}
+
+/** Etiqueta legible del rol para la gestión de usuarios */
+function rolBadgeHTML(rol) {
+  if (rol === 'ADMIN') return '<span class="badge badge-entrega">Admin</span>';
+  if (rol === 'AUDITOR') return '<span class="badge badge-count">Auditor</span>';
+  return '<span class="badge badge-devolucion">Consulta</span>';
+}
+
 function pad2(n) { return String(n).padStart(2, '0'); }
 
 /** Primeras 3 letras del área: sin tildes, mayúsculas, A-Z0-9 */
@@ -1413,7 +1507,22 @@ function audNombreCorto(nombre, max = 30) {
   return s.length > max ? s.slice(0, Math.max(1, max - 1)) + '…' : s;
 }
 
+/** Oculta/muestra botones según el rol: registrar = ADMIN|AUDITOR, mantenimiento = ADMIN */
+function renderAudPermisos() {
+  const puedeRegistrar = puedeRegistrarAud();
+  const admin = esAdmin();
+  ['#btnAbrirAudRegistro', '#btnNuevoAudRegistroEmpty'].forEach(s => {
+    const el = $(s);
+    if (el) el.classList.toggle('d-none', !puedeRegistrar);
+  });
+  ['#btnNuevoAudProducto', '#btnNuevoAudProductoEmpty', '#btnNuevoAudArea', '#btnNuevoAudAreaEmpty'].forEach(s => {
+    const el = $(s);
+    if (el) el.classList.toggle('d-none', !admin);
+  });
+}
+
 async function cargarAuditoria() {
+  renderAudPermisos();
   await Promise.all([cargarAudAreas(), cargarAudProductos(), cargarAudRegistros()]);
 }
 
@@ -1441,7 +1550,6 @@ function poblarAudSelects() {
   const areas = state.audAreas;
   const prods = state.audProductos;
   const opcAreas = areas.map(a => `<option value="${a.id}">${esc(a.nombre)}</option>`).join('');
-  const opcProds = prods.map(p => `<option value="${p.id}">${esc(p.codigo)} · ${esc(p.nombre)}</option>`).join('');
 
   const baseArea = `<option value="" selected disabled>${areas.length ? 'Selecciona un área…' : 'No hay áreas disponibles'}</option>`;
   $('#selAudArea').innerHTML = baseArea + opcAreas;
@@ -1449,8 +1557,8 @@ function poblarAudSelects() {
   $('#selAudFiltroArea').innerHTML = '<option value="">Todas las áreas</option>' + opcAreas;
 
   const baseProd = `<option value="" selected disabled>${prods.length ? 'Selecciona un producto…' : 'No hay productos disponibles'}</option>`;
-  $('#selAudProducto').innerHTML = baseProd + opcProds;
-  $('#editSelAudProducto').innerHTML = baseProd + opcProds;
+  $('#editSelAudProducto').innerHTML = baseProd + prods.map(p =>
+    `<option value="${p.id}">${esc(p.codigo)} · ${esc(audNombreCorto(p.nombre, 28))}</option>`).join('');
   $('#audWarnSinProductos').classList.toggle('d-none', prods.length > 0);
 }
 
@@ -1594,12 +1702,13 @@ function actualizarAudPreview() {
   const area = state.audAreas.find(a => a.id === Number($('#selAudArea').value));
   const n = new Date();
   const hoy = `${n.getFullYear()}-${pad2(n.getMonth() + 1)}-${pad2(n.getDate())}`;
+  // El correlativo cuenta auditorías (códigos distintos) del área en el día
   const delDia = area
-    ? state.audRegistros.filter(r => Number(r.area_id) === Number(area.id) && String(r.fecha).slice(0, 10) === hoy).length
+    ? new Set(state.audRegistros
+        .filter(r => Number(r.area_id) === Number(area.id) && String(r.fecha).slice(0, 10) === hoy)
+        .map(r => r.codigo)).size
     : 0;
   $('#audPreviewCodigo').textContent = audCodigoPreview(audSiglasArea(area?.nombre), delDia + 1);
-  const prod = state.audProductos.find(p => p.id === Number($('#selAudProducto').value));
-  $('#inpAudProductoCodigo').value = prod ? prod.codigo : '';
 }
 
 function actualizarEditAudPreview() {
@@ -1608,17 +1717,35 @@ function actualizarEditAudPreview() {
 }
 
 $('#selAudArea').addEventListener('change', actualizarAudPreview);
-$('#selAudProducto').addEventListener('change', actualizarAudPreview);
 $('#editSelAudArea').addEventListener('change', actualizarEditAudPreview);
 $('#editSelAudProducto').addEventListener('change', actualizarEditAudPreview);
 
+/* Opciones de producto para una fila (select compacto: CÓDIGO · NOMBRE) */
+function audOpcionesProducto(sel = null) {
+  const base = `<option value="" selected disabled>${state.audProductos.length ? 'Selecciona un producto…' : 'No hay productos disponibles'}</option>`;
+  const opciones = state.audProductos.map(p =>
+    `<option value="${p.id}" ${Number(sel) === Number(p.id) ? 'selected' : ''}>${esc(p.codigo)} · ${esc(audNombreCorto(p.nombre, 24))}</option>`
+  ).join('');
+  return base + opciones;
+}
+
+function audRowProductoHTML(prodId = null, cantidad = 1) {
+  return `<div class="aud-prod-row">
+    <select class="form-select aud-prod-select" aria-label="Producto">${audOpcionesProducto(prodId)}</select>
+    <input type="number" class="form-control aud-prod-cant" min="1" max="1000000" step="1" value="${cantidad}"
+      inputmode="numeric" aria-label="Cantidad">
+    <button type="button" class="btn-action danger aud-prod-remove" title="Quitar producto"><i class="bi bi-x-lg"></i></button>
+  </div>`;
+}
+
 function abrirAudRegistroNuevo() {
-  ['#selAudArea', '#selAudProducto', '#inpAudCantidad'].forEach(s => $(s).classList.remove('is-invalid'));
+  $('#selAudArea').classList.remove('is-invalid');
   $('#formAudRegistro').reset();
-  $('#inpAudCantidad').value = 1;
   $('#selAudArea').selectedIndex = 0;
-  $('#selAudProducto').selectedIndex = 0;
-  $('#inpAudProductoCodigo').value = '';
+  $('#audProductosLista').innerHTML = '';
+  if (state.audProductos.length) {
+    $('#audProductosLista').insertAdjacentHTML('beforeend', audRowProductoHTML());
+  }
   actualizarAudPreview();
   tick();
   bootstrap.Modal.getOrCreateInstance($('#modalAudRegistro')).show();
@@ -1627,30 +1754,61 @@ function abrirAudRegistroNuevo() {
 $('#btnAbrirAudRegistro').addEventListener('click', abrirAudRegistroNuevo);
 $('#btnNuevoAudRegistroEmpty').addEventListener('click', abrirAudRegistroNuevo);
 
+/* Filas dinámicas de productos: agregar / quitar */
+$('#audProductosLista').addEventListener('click', e => {
+  const btn = e.target.closest('.aud-prod-remove');
+  if (!btn) return;
+  const filas = $('#audProductosLista').querySelectorAll('.aud-prod-row');
+  if (filas.length <= 1) {
+    toast('La auditoría debe tener al menos un producto', 'warning');
+    return;
+  }
+  btn.closest('.aud-prod-row').remove();
+});
+$('#btnAudAgregarProducto').addEventListener('click', () => {
+  if (!state.audProductos.length) {
+    toast('Primero crea productos en el sub-módulo Productos', 'warning');
+    return;
+  }
+  $('#audProductosLista').insertAdjacentHTML('beforeend', audRowProductoHTML());
+});
+
 $('#formAudRegistro').addEventListener('submit', async e => {
   e.preventDefault();
 
   const areaId = parseInt($('#selAudArea').value, 10);
-  const productoId = parseInt($('#selAudProducto').value, 10);
-  const cantidad = parseInt($('#inpAudCantidad').value, 10);
+  const filas = [...$('#audProductosLista').querySelectorAll('.aud-prod-row')];
 
   let ok = true;
-  ['#selAudArea', '#selAudProducto', '#inpAudCantidad'].forEach(s => $(s).classList.remove('is-invalid'));
+  $('#selAudArea').classList.remove('is-invalid');
   if (!areaId) { $('#selAudArea').classList.add('is-invalid'); ok = false; }
-  if (!productoId) { $('#selAudProducto').classList.add('is-invalid'); ok = false; }
-  if (!(cantidad >= 1)) { $('#inpAudCantidad').classList.add('is-invalid'); ok = false; }
+
+  const productos = [];
+  filas.forEach(fila => {
+    const sel = fila.querySelector('.aud-prod-select');
+    const cant = fila.querySelector('.aud-prod-cant');
+    const productoId = parseInt(sel.value, 10);
+    const cantidad = parseInt(cant.value, 10);
+    sel.classList.remove('is-invalid');
+    cant.classList.remove('is-invalid');
+    if (!productoId) { sel.classList.add('is-invalid'); ok = false; return; }
+    if (!(cantidad >= 1)) { cant.classList.add('is-invalid'); ok = false; return; }
+    productos.push({ producto_id: productoId, cantidad });
+  });
   if (!ok) { toast('Revisa los campos marcados en rojo', 'warning'); return; }
+  if (!productos.length) { toast('Agrega al menos un producto a la auditoría', 'warning'); return; }
 
   const btn = $('#btnGuardarAudRegistro');
   btn.disabled = true;
   btn.querySelector('.spinner-border').classList.remove('d-none');
 
   try {
-    const nuevo = await api('/auditoria/registros', {
+    const res = await api('/auditoria/registros', {
       method: 'POST',
-      body: { area_id: areaId, producto_id: productoId, cantidad }
+      body: { area_id: areaId, productos },
+      headers: { 'X-User-Rol': currentUser?.rol || '' }
     });
-    toast(`Registro ${nuevo.codigo} guardado correctamente`);
+    toast(`Auditoría ${res.codigo} guardada (${res.cantidad_registros} producto(s))`);
     bootstrap.Modal.getOrCreateInstance($('#modalAudRegistro')).hide();
     await cargarAuditoria();
   } catch (err) {
@@ -1753,6 +1911,12 @@ function renderAudProductos() {
 
   if (vacio) return;
 
+  const admin = esAdmin();
+  const accionesProd = p => admin
+    ? `<button class="btn-action" data-action="aud-edit-producto" data-id="${p.id}" title="Editar"><i class="bi bi-pencil-square"></i></button>
+       <button class="btn-action danger" data-action="aud-del-producto" data-id="${p.id}" title="Eliminar"><i class="bi bi-trash3"></i></button>`
+    : '';
+
   $('#tbodyAudProductos').innerHTML = lista.map((p, i) => `
       <tr style="--d:${Math.min(i * .04, .35)}s">
         <td><span class="badge badge-code">${esc(p.codigo)}</span></td>
@@ -1760,10 +1924,7 @@ function renderAudProductos() {
           <span class="prod-name text-truncate-custom trunc-long has-tip" data-tip="${esc(p.nombre)}">${esc(audNombreCorto(p.nombre, 40))}</span><br>
           <span class="prod-meta d-md-none">${p.total_registros} registro(s)</span>
         </td>
-        <td class="text-end text-nowrap">
-          <button class="btn-action" data-action="aud-edit-producto" data-id="${p.id}" title="Editar"><i class="bi bi-pencil-square"></i></button>
-          <button class="btn-action danger" data-action="aud-del-producto" data-id="${p.id}" title="Eliminar"><i class="bi bi-trash3"></i></button>
-        </td>
+        <td class="text-end text-nowrap">${accionesProd(p)}</td>
       </tr>`).join('');
 
   const existingMobile = $('#wrapTablaAudProductos').previousElementSibling;
@@ -1778,6 +1939,7 @@ function renderAudProductos() {
 
 function renderAudProductosMobile(lista) {
   if (!lista.length) return '';
+  const admin = esAdmin();
   return `<div class="d-md-none aud-productos-mobile-cards">${lista.map((p, i) => `
     <div class="producto-mobile-card" style="animation-delay:${Math.min(i * .05, .4)}s">
       <div class="pmc-header">
@@ -1788,10 +1950,10 @@ function renderAudProductosMobile(lista) {
         </div>
         <span class="badge badge-count">${p.total_registros}</span>
       </div>
-      <div class="pmc-actions">
+      ${admin ? `<div class="pmc-actions">
         <button class="btn-action" data-action="aud-edit-producto" data-id="${p.id}" title="Editar"><i class="bi bi-pencil-square"></i></button>
         <button class="btn-action danger" data-action="aud-del-producto" data-id="${p.id}" title="Eliminar"><i class="bi bi-trash3"></i></button>
-      </div>
+      </div>` : ''}
     </div>`).join('')}</div>`;
 }
 
@@ -1866,16 +2028,19 @@ function renderAudAreas() {
 
   if (vacio) return;
 
+  const admin = esAdmin();
+  const accionesArea = a => admin
+    ? `<button class="btn-action" data-action="aud-edit-area" data-id="${a.id}" title="Editar"><i class="bi bi-pencil-square"></i></button>
+       <button class="btn-action danger" data-action="aud-del-area" data-id="${a.id}" title="Eliminar"><i class="bi bi-trash3"></i></button>`
+    : '';
+
   $('#tbodyAudAreas').innerHTML = lista.map((a, i) => `
       <tr style="--d:${Math.min(i * .04, .35)}s">
         <td>
           <span class="prod-name text-truncate-custom trunc-long has-tip" data-tip="${esc(a.nombre)}">${esc(a.nombre)}</span><br>
           <span class="prod-meta d-md-none">${a.total_registros} registro(s)</span>
         </td>
-        <td class="text-end text-nowrap">
-          <button class="btn-action" data-action="aud-edit-area" data-id="${a.id}" title="Editar"><i class="bi bi-pencil-square"></i></button>
-          <button class="btn-action danger" data-action="aud-del-area" data-id="${a.id}" title="Eliminar"><i class="bi bi-trash3"></i></button>
-        </td>
+        <td class="text-end text-nowrap">${accionesArea(a)}</td>
       </tr>`).join('');
 
   const existingMobile = $('#wrapTablaAudAreas').previousElementSibling;
@@ -1890,6 +2055,7 @@ function renderAudAreas() {
 
 function renderAudAreasMobile(lista) {
   if (!lista.length) return '';
+  const admin = esAdmin();
   return `<div class="d-md-none aud-areas-mobile-cards">${lista.map((a, i) => `
     <div class="producto-mobile-card" style="animation-delay:${Math.min(i * .05, .4)}s">
       <div class="pmc-header">
@@ -1899,10 +2065,10 @@ function renderAudAreasMobile(lista) {
           <span class="pmc-code">${a.total_registros} registro(s)</span>
         </div>
       </div>
-      <div class="pmc-actions">
+      ${admin ? `<div class="pmc-actions">
         <button class="btn-action" data-action="aud-edit-area" data-id="${a.id}" title="Editar"><i class="bi bi-pencil-square"></i></button>
         <button class="btn-action danger" data-action="aud-del-area" data-id="${a.id}" title="Eliminar"><i class="bi bi-trash3"></i></button>
-      </div>
+      </div>` : ''}
     </div>`).join('')}</div>`;
 }
 
@@ -2680,7 +2846,6 @@ function renderUsuarios() {
 
   // Desktop table
   $('#tbodyUsuarios').innerHTML = lista.map((u, i) => {
-    const isAdmin = u.rol === 'ADMIN';
     const esMismoUsuario = currentUser && currentUser.id === u.id;
     const pendiente = !u.activo;
     return `
@@ -2690,9 +2855,7 @@ function renderUsuarios() {
           ${pendiente ? '<span class="badge badge-warning ms-1">Pendiente</span>' : ''}
         </td>
         <td><span class="prod-name">${esc(u.nombre_completo)}</span></td>
-        <td class="text-center">
-          <span class="badge ${isAdmin ? 'badge-entrega' : 'badge-devolucion'}">${isAdmin ? 'Admin' : 'Consulta'}</span>
-        </td>
+        <td class="text-center">${rolBadgeHTML(u.rol)}</td>
         <td class="text-center">
           <span class="badge ${u.activo ? 'badge-activo' : 'badge-inactivo'}">${u.activo ? 'Activo' : 'Inactivo'}</span>
         </td>
@@ -2795,7 +2958,7 @@ function renderRegistrosMobile(lista) {
           <i class="bi ${r.tipo === 'ENTREGA' ? 'bi-truck' : 'bi-arrow-return-left'}"></i>
         </div>
         <div class="rmc-title">
-          <span class="rmc-producto" title="${esc(r.producto_nombre)}">${esc(r.producto_nombre.length > 20 ? r.producto_nombre.slice(0, 18) + '…' : r.producto_nombre)}</span>
+          <span class="rmc-producto has-tip" data-tip="${esc(r.producto_nombre)}">${esc(audNombreCorto(r.producto_nombre, 14))}</span>
           <span class="rmc-codigo"><i class="bi bi-hash"></i>${esc(r.codigo)}</span>
         </div>
         <span class="badge ${r.tipo === 'ENTREGA' ? 'badge-entrega' : 'badge-devolucion'}">${r.tipo === 'ENTREGA' ? 'Entrega' : 'Devolución'}</span>
@@ -2845,18 +3008,17 @@ function renderProductosMobile(lista) {
 function renderUsuariosMobile(lista) {
   if (!lista.length) return '';
   return `<div class="d-md-none usuarios-mobile-cards">${lista.map((u, i) => {
-    const isAdmin = u.rol === 'ADMIN';
     const esMismoUsuario = currentUser && currentUser.id === u.id;
     const pendiente = !u.activo;
     return `
     <div class="usuario-mobile-card ${pendiente ? 'card-pending' : ''}" style="animation-delay:${Math.min(i * .05, .4)}s">
       <div class="umc-header">
-        <div class="umc-icon ${isAdmin ? 'admin' : 'consulta'}"><i class="bi bi-person"></i></div>
+        <div class="umc-icon ${u.rol === 'ADMIN' ? 'admin' : u.rol === 'AUDITOR' ? 'auditor' : 'consulta'}"><i class="bi bi-person"></i></div>
         <div class="umc-info">
           <span class="umc-name">${esc(u.nombre_completo)}</span>
           <span class="umc-usuario">@${esc(u.usuario)} ${pendiente ? '<span class="badge badge-warning ms-1">Pendiente</span>' : ''}</span>
         </div>
-        <span class="badge ${isAdmin ? 'badge-entrega' : 'badge-devolucion'}">${isAdmin ? 'Admin' : 'Consulta'}</span>
+        ${rolBadgeHTML(u.rol)}
       </div>
       <div class="umc-body">
         <div class="umc-field"><label>Estado</label><span class="badge ${u.activo ? 'badge-activo' : 'badge-inactivo'}">${u.activo ? 'Activo' : 'Inactivo'}</span></div>

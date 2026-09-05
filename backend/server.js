@@ -31,6 +31,7 @@ const PORT = process.env.PORT || 3000;
 // Ejecutar migraciones antes de iniciar el servidor
 migrarObservaciones()
   .then(() => migrarObservaciones.migrarAuditoria())
+  .then(() => migrarObservaciones.migrarRoles())
   .then(() => {
     app.listen(PORT, () => {
       console.log(`Servidor corriendo en http://localhost:${PORT}`);
