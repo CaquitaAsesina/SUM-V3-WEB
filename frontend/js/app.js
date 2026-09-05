@@ -919,6 +919,7 @@ function abrirVerRegistro(r) {
   $('#verRegFecha').textContent = fmtFecha(r.fecha_hora);
   // Store for edit button
   state.verRegistroId = r.id;
+  $('#btnVerRegistroEditar')?.classList.toggle('d-none', !esAdmin());
   bootstrap.Modal.getOrCreateInstance($('#modalVerRegistro')).show();
 }
 
@@ -955,6 +956,11 @@ function renderRegistros() {
 
   if (!mostrarVacio) {
     // Desktop table
+    const admin = esAdmin();
+    const accionesAdmin = r => admin
+      ? `<button class="btn-action" data-action="edit-registro" data-id="${r.id}" title="Editar"><i class="bi bi-pencil-square"></i></button>
+         <button class="btn-action danger" data-action="del-registro" data-id="${r.id}" title="Eliminar"><i class="bi bi-trash3"></i></button>`
+      : '';
     $('#tbodyRegistros').innerHTML = lista.map((r, i) => `
       <tr style="--d:${Math.min(i * .035, .4)}s">
         <td><span class="badge badge-code">${esc(r.codigo)}</span></td>
@@ -972,8 +978,7 @@ function renderRegistros() {
         <td><span class="small text-muted-lila" style="white-space:nowrap">${fmtFecha(r.fecha_hora)}</span></td>
         <td class="text-end text-nowrap">
           <button class="btn-action btn-view-reg" data-action="view-registro" data-id="${r.id}" title="Ver detalle"><i class="bi bi-eye"></i></button>
-          <button class="btn-action" data-action="edit-registro" data-id="${r.id}" title="Editar"><i class="bi bi-pencil-square"></i></button>
-          <button class="btn-action danger" data-action="del-registro" data-id="${r.id}" title="Eliminar"><i class="bi bi-trash3"></i></button>
+          ${accionesAdmin(r)}
         </td>
       </tr>`).join('');
     // Mobile cards - inject before the table
@@ -1407,7 +1412,8 @@ $('#btnGuardarRegistroEdit').addEventListener('click', async () => {
         placa,
         numero_guia: editGuia,
         proveedor: $('#editProveedor').value.trim()
-      }
+      },
+      headers: { 'X-User-Rol': currentUser?.rol || '' }
     });
     toast(`Registro ${r.codigo} actualizado`);
     bootstrap.Modal.getOrCreateInstance($('#modalRegistroEdit')).hide();
@@ -1454,17 +1460,28 @@ document.addEventListener('click', async e => {
     });
 
   } else if (action === 'edit-registro') {
+    if (!esAdmin()) {
+      toast('Solo el administrador puede editar registros', 'warning');
+      return;
+    }
     const r = state.registros.find(x => x.id === id);
     if (r) abrirModalRegistro(r);
 
   } else if (action === 'del-registro') {
+    if (!esAdmin()) {
+      toast('Solo el administrador puede eliminar registros', 'warning');
+      return;
+    }
     const r = state.registros.find(x => x.id === id);
     if (!r) return;
     confirmar({
       titulo: `¿Eliminar registro?`,
       mensaje: `Se eliminará el movimiento ${r.codigo} (${r.tipo}). Esta acción no se puede deshacer.`,
       onOk: async () => {
-        await api(`/registros/${id}`, { method: 'DELETE' });
+        await api(`/registros/${id}`, {
+          method: 'DELETE',
+          headers: { 'X-User-Rol': currentUser?.rol || '' }
+        });
         toast('Registro eliminado correctamente');
         await cargarRegistros();
         await cargarProductos();
@@ -3088,6 +3105,11 @@ $('#btnGuardarUsuario').addEventListener('click', async () => {
 // Mobile card rendering for registros
 function renderRegistrosMobile(lista) {
   if (!lista.length) return '';
+  const admin = esAdmin();
+  const accionesAdmin = r => admin
+    ? `<button class="btn-action" data-action="edit-registro" data-id="${r.id}" title="Editar"><i class="bi bi-pencil-square"></i></button>
+       <button class="btn-action danger" data-action="del-registro" data-id="${r.id}" title="Eliminar"><i class="bi bi-trash3"></i></button>`
+    : '';
   return `<div class="d-md-none registros-mobile-cards">${lista.map((r, i) => `
     <div class="registro-mobile-card ${r.tipo === 'DEVOLUCION' ? 'tipo-dev' : 'tipo-ent'}" style="animation-delay:${Math.min(i * .05, .4)}s">
       <div class="rmc-header">
@@ -3110,8 +3132,7 @@ function renderRegistrosMobile(lista) {
       </div>
       <div class="rmc-actions">
         <button class="btn-action btn-view-reg" data-action="view-registro" data-id="${r.id}" title="Ver detalle"><i class="bi bi-eye"></i></button>
-        <button class="btn-action" data-action="edit-registro" data-id="${r.id}" title="Editar"><i class="bi bi-pencil-square"></i></button>
-        <button class="btn-action danger" data-action="del-registro" data-id="${r.id}" title="Eliminar"><i class="bi bi-trash3"></i></button>
+        ${accionesAdmin(r)}
       </div>
     </div>`).join('')}</div>`;
 }
