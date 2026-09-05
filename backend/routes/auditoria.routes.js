@@ -11,10 +11,10 @@ function soloAdmin(req, res, next) {
   next();
 }
 
-/** ADMIN y AUDITOR pueden registrar auditorías (crear registros) */
+/** ADMIN y CONSULTA pueden registrar auditorías (crear registros) */
 function puedeRegistrar(req, res, next) {
   const rol = String(req.get('x-user-rol') || '').toUpperCase();
-  if (rol !== 'ADMIN' && rol !== 'AUDITOR') {
+  if (rol !== 'ADMIN' && rol !== 'CONSULTA') {
     return res.status(403).json({ error: 'No tienes permiso para registrar auditorías' });
   }
   next();

@@ -1635,15 +1635,14 @@ function esAdmin() {
   return !!(currentUser && currentUser.rol === 'ADMIN');
 }
 
-/** ADMIN y AUDITOR pueden registrar auditorías (crear registros) */
+/** ADMIN y CONSULTA pueden registrar (crear registros) en ambos módulos */
 function puedeRegistrarAud() {
-  return !!(currentUser && ['ADMIN', 'AUDITOR'].includes(currentUser.rol));
+  return !!(currentUser && ['ADMIN', 'CONSULTA'].includes(currentUser.rol));
 }
 
 /** Etiqueta legible del rol para la gestión de usuarios */
 function rolBadgeHTML(rol) {
   if (rol === 'ADMIN') return '<span class="badge badge-entrega">Admin</span>';
-  if (rol === 'AUDITOR') return '<span class="badge badge-count">Auditor</span>';
   return '<span class="badge badge-devolucion">Consulta</span>';
 }
 
@@ -1667,7 +1666,7 @@ function audNombreCorto(nombre, max = 30) {
   return s.length > max ? s.slice(0, Math.max(1, max - 1)) + '…' : s;
 }
 
-/** Oculta/muestra botones según el rol: registrar = ADMIN|AUDITOR, mantenimiento = ADMIN */
+/** Oculta/muestra botones según el rol: registrar = ADMIN|CONSULTA, mantenimiento = ADMIN */
 function renderAudPermisos() {
   const puedeRegistrar = puedeRegistrarAud();
   const admin = esAdmin();
