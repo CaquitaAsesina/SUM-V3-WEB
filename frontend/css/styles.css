@@ -1096,10 +1096,20 @@ a:hover { color: var(--purple-700); }
 
 .modal-content.modal-app {
   border: none; border-radius: var(--radius-lg);
-  overflow: hidden;
+  overflow: visible; /* permite que el dropdown del combobox sobresalga del modal sin recortarse */
   box-shadow: var(--shadow-4);
   background: #fefeff;
 }
+/* Conserva las esquinas redondeadas sin depender del overflow del modal
+   (para que el dropdown de búsqueda pueda salir del modal sin deformarse) */
+.modal-content.modal-app .reg-hero,
+.modal-content.modal-app > .modal-header {
+  border-top-left-radius: inherit;
+  border-top-right-radius: inherit;
+}
+.modal-content.modal-app .reg-hero,
+.modal-content.modal-app > .modal-header,
+.modal-content.modal-app > .modal-footer { overflow: hidden; }
 .modal.fade .modal-dialog { transform: translateY(30px) scale(.96); transition: transform .45s var(--ease-spring-soft); }
 .modal.show .modal-dialog { transform: none; }
 .modal-header { border-bottom: 1px solid #f3eefa; padding: 14px 18px; }
@@ -3641,6 +3651,9 @@ a:hover { color: var(--purple-700); }
 @media (max-width: 480px) {
   .aud-prod-row,
   .prod-row { flex-wrap: wrap; }
+  /* En móvil el buscador ocupa todo el ancho y la cantidad va debajo: sin deformarse */
+  .aud-prod-row .combobox,
+  .prod-row .combobox { flex: 1 1 100%; }
   .aud-prod-row .aud-prod-cant,
   .prod-row .prod-row-cant { width: 74px; }
 }
@@ -3657,8 +3670,9 @@ a:hover { color: var(--purple-700); }
   top: calc(100% + 4px);
   left: 0;
   right: 0;
-  z-index: 60;
-  max-height: 230px;
+  /* Siempre por encima del resto del modal (los z-index de Bootstrap del modal son 1055) */
+  z-index: 1060;
+  max-height: min(230px, 45vh);
   overflow-y: auto;
   overscroll-behavior: contain;
   background: #fff;
@@ -3667,6 +3681,10 @@ a:hover { color: var(--purple-700); }
   box-shadow: 0 14px 34px rgba(76, 29, 149, .18);
   padding: 4px;
 }
+/* Mientras un menú está abierto, su contenedor queda por encima de los
+   campos siguientes (evita que quede detrás durante las animaciones del modal) */
+.combobox:has(.combobox-menu:not([hidden])) { z-index: 120; }
+.fx-item:has(.combobox-menu:not([hidden])) { position: relative; z-index: 120; }
 .combobox-option {
   display: flex;
   align-items: baseline;
