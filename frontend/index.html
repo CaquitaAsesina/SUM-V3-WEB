@@ -1291,8 +1291,14 @@
                 <div class="invalid-feedback">Debe ser mayor a 0.</div>
               </div>
               <div class="col-12">
-                <label class="form-label" for="editSelProducto">Producto</label>
-                <select class="form-select" id="editSelProducto"></select>
+                <label class="form-label" for="editProductoBusqueda">Producto</label>
+                <div class="combobox" id="comboboxEditProducto">
+                  <input type="text" class="form-control combobox-input" id="editProductoBusqueda"
+                    placeholder="Busca un producto (código o nombre)…" autocomplete="off" spellcheck="false"
+                    role="combobox" aria-expanded="false" aria-label="Producto">
+                  <input type="hidden" id="editSelProducto" class="combobox-value">
+                  <div class="combobox-menu" hidden></div>
+                </div>
                 <div class="invalid-feedback">Selecciona un producto.</div>
               </div>
               <div class="col-12 col-md-6">
@@ -1527,10 +1533,14 @@
                 <div class="invalid-feedback">Selecciona un área de la lista.</div>
               </div>
               <div class="col-12">
-                <label class="form-label" for="editSelAudProducto">Producto</label>
-                <select class="form-select" id="editSelAudProducto" required>
-                  <option value="" selected disabled>Cargando productos…</option>
-                </select>
+                <label class="form-label" for="editAudProductoBusqueda">Producto</label>
+                <div class="combobox" id="comboboxEditAudProducto">
+                  <input type="text" class="form-control combobox-input" id="editAudProductoBusqueda"
+                    placeholder="Busca un producto (código o nombre)…" autocomplete="off" spellcheck="false"
+                    role="combobox" aria-expanded="false" aria-label="Producto">
+                  <input type="hidden" id="editSelAudProducto" class="combobox-value">
+                  <div class="combobox-menu" hidden></div>
+                </div>
                 <div class="invalid-feedback">Selecciona un producto de la lista.</div>
               </div>
               <div class="col-12 col-md-6">

@@ -3627,8 +3627,8 @@ a:hover { color: var(--purple-700); }
   gap: 8px;
   margin-bottom: 8px;
 }
-.aud-prod-row .aud-prod-select,
-.prod-row .prod-row-select { flex: 1; min-width: 0; }
+.aud-prod-row .combobox,
+.prod-row .combobox { flex: 1; min-width: 0; }
 .aud-prod-row .aud-prod-cant,
 .prod-row .prod-row-cant {
   width: 92px;
@@ -3644,3 +3644,53 @@ a:hover { color: var(--purple-700); }
   .aud-prod-row .aud-prod-cant,
   .prod-row .prod-row-cant { width: 74px; }
 }
+
+/* ═══════════════════════════════════════════════════════════════
+   COMBOBOX — búsqueda de producto escribiendo (filtro en vivo)
+   ═══════════════════════════════════════════════════════════════ */
+.combobox { position: relative; }
+.aud-prod-row .combobox,
+.prod-row .combobox { flex: 1; min-width: 0; }
+.combobox .combobox-input { width: 100%; }
+.combobox-menu {
+  position: absolute;
+  top: calc(100% + 4px);
+  left: 0;
+  right: 0;
+  z-index: 60;
+  max-height: 230px;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  background: #fff;
+  border: 1.5px solid #e8e3f5;
+  border-radius: 12px;
+  box-shadow: 0 14px 34px rgba(76, 29, 149, .18);
+  padding: 4px;
+}
+.combobox-option {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  width: 100%;
+  text-align: left;
+  padding: 7px 10px;
+  border: 0;
+  border-radius: 8px;
+  background: transparent;
+  cursor: pointer;
+  font-size: .84rem;
+  color: var(--ink);
+}
+.combobox-option:hover,
+.combobox-option.active { background: var(--purple-50); }
+.cb-codigo { font-weight: 700; color: var(--purple-600); font-size: .78rem; white-space: nowrap; }
+.cb-nombre {
+  color: var(--ink-soft);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  min-width: 0;
+}
+.combobox-empty { padding: 10px 12px; font-size: .82rem; color: var(--muted); text-align: center; }
+.combobox.is-invalid .combobox-input { border-color: #f1a3b5; background: #fffafa; }
+.combobox.is-invalid .combobox-input:focus { box-shadow: 0 0 0 4px rgba(225, 29, 72, .12); }

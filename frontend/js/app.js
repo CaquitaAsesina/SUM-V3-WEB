@@ -550,27 +550,163 @@ async function cargarProductos() {
 
 function poblarSelects() {
   const hay = state.productos.length > 0;
-  const base = `<option value="" selected disabled>${hay ? 'Selecciona un producto…' : 'No hay productos disponibles'}</option>`;
-  const opciones = p =>
-    `<option value="${p.id}">${esc(p.codigo)} · ${esc(audNombreCorto(p.nombre, 24))}</option>`;
-  $('#editSelProducto').innerHTML = base + state.productos.filter(p => p.activo).map(opciones).join('');
   $('#warnSinProductos').classList.toggle('d-none', hay);
 }
 
-/* Opciones de producto para una fila (select compacto: CÓDIGO · NOMBRE) */
-function opcionesProductoRegistro(sel = null) {
-  const base = `<option value="" selected disabled>${state.productos.length ? 'Selecciona un producto…' : 'No hay productos disponibles'}</option>`;
-  const opciones = state.productos
-    .filter(p => p.activo)
-    .map(p =>
-      `<option value="${p.id}" ${Number(sel) === Number(p.id) ? 'selected' : ''}>${esc(p.codigo)} · ${esc(audNombreCorto(p.nombre, 24))}</option>`
-    ).join('');
-  return base + opciones;
+/* ---------- combobox de búsqueda de producto (escribir para filtrar) ---------- */
+
+function textoProducto(p) {
+  return `${p.codigo} · ${p.nombre}`;
 }
+
+function filtrarProductosBusqueda(productos, q) {
+  const needle = String(q || '').trim().toLowerCase();
+  const lista = needle
+    ? productos.filter(p => `${p.codigo} ${p.nombre}`.toLowerCase().includes(needle))
+    : productos;
+  return lista.slice(0, 60);
+}
+
+function comboboxProductoHTML({ productos = [], valueId = null, placeholder = 'Busca un producto…', hiddenClass = 'prod-row-select' } = {}) {
+  const prod = productos.find(p => Number(p.id) === Number(valueId));
+  return `<div class="combobox">
+    <input type="text" class="form-control combobox-input" placeholder="${esc(placeholder)}" value="${esc(prod ? textoProducto(prod) : '')}"
+      autocomplete="off" spellcheck="false" role="combobox" aria-expanded="false" aria-label="Producto">
+    <input type="hidden" class="${hiddenClass} combobox-value" value="${prod ? prod.id : ''}">
+    <div class="combobox-menu" hidden></div>
+  </div>`;
+}
+
+function renderComboboxMenu(input, productos, query) {
+  const wrapper = input.closest('.combobox');
+  const menu = wrapper.querySelector('.combobox-menu');
+  const lista = filtrarProductosBusqueda(productos, query !== undefined ? query : input.value);
+  menu.innerHTML = lista.length
+    ? lista.map(p =>
+        `<button type="button" class="combobox-option" data-id="${p.id}" data-label="${esc(textoProducto(p))}">
+          <span class="cb-codigo">${esc(p.codigo)}</span>
+          <span class="cb-nombre">${esc(audNombreCorto(p.nombre, 40))}</span>
+        </button>`).join('')
+    : `<div class="combobox-empty"><i class="bi bi-search me-1"></i>Sin coincidencias</div>`;
+  menu.hidden = false;
+  input.setAttribute('aria-expanded', 'true');
+}
+
+function seleccionarCombobox(input, id, label) {
+  const wrapper = input.closest('.combobox');
+  const hidden = wrapper.querySelector('.combobox-value');
+  hidden.value = id;
+  input.value = label || '';
+  wrapper.querySelector('.combobox-menu').hidden = true;
+  input.setAttribute('aria-expanded', 'false');
+  wrapper.classList.remove('is-invalid');
+  hidden.dispatchEvent(new Event('change', { bubbles: true }));
+}
+
+function setComboboxProducto(hidden, id, productos) {
+  const wrapper = hidden.closest('.combobox');
+  const input = wrapper.querySelector('.combobox-input');
+  const prod = productos.find(p => Number(p.id) === Number(id));
+  hidden.value = prod ? prod.id : '';
+  input.value = prod ? textoProducto(prod) : '';
+  wrapper.classList.remove('is-invalid');
+}
+
+function navegarCombobox(e, input) {
+  const wrapper = input.closest('.combobox');
+  const menu = wrapper.querySelector('.combobox-menu');
+  if (menu.hidden) return;
+  const opts = [...menu.querySelectorAll('.combobox-option')];
+  const act = menu.querySelector('.combobox-option.active');
+  const idx = opts.indexOf(act);
+  if (e.key === 'ArrowDown' || e.key === 'ArrowUp') {
+    e.preventDefault();
+    const dir = e.key === 'ArrowDown' ? 1 : -1;
+    const next = opts[(idx + dir + opts.length) % opts.length];
+    if (next) {
+      opts.forEach(o => o.classList.remove('active'));
+      next.classList.add('active');
+      next.scrollIntoView({ block: 'nearest' });
+    }
+  } else if (e.key === 'Enter') {
+    const sel = menu.querySelector('.combobox-option.active') || opts[0];
+    if (sel) {
+      e.preventDefault();
+      seleccionarCombobox(input, sel.dataset.id, sel.dataset.label);
+    }
+  } else if (e.key === 'Escape') {
+    menu.hidden = true;
+    input.setAttribute('aria-expanded', 'false');
+  }
+}
+
+/* Combobox estáticos (modales de edición) */
+function bindCombobox(caja, productosFn) {
+  if (!caja) return;
+  const input = caja.querySelector('.combobox-input');
+  if (!input) return;
+  input.addEventListener('focus', () => {
+    const yaSeleccionado = caja.querySelector('.combobox-value')?.value;
+    if (yaSeleccionado) input.select();
+    renderComboboxMenu(input, productosFn(), yaSeleccionado ? '' : undefined);
+  });
+  input.addEventListener('input', () => {
+    caja.querySelector('.combobox-value').value = '';
+    renderComboboxMenu(input, productosFn());
+  });
+  input.addEventListener('keydown', e => navegarCombobox(e, input));
+  caja.addEventListener('click', e => {
+    const opt = e.target.closest('.combobox-option');
+    if (!opt) return;
+    seleccionarCombobox(input, opt.dataset.id, opt.dataset.label);
+  });
+}
+
+/* Combobox dinámicos (filas de producto) mediante delegación */
+function bindComboboxContenedor(contenedor, productosFn) {
+  contenedor.addEventListener('focusin', e => {
+    const input = e.target.closest('.combobox-input');
+    if (!input) return;
+    const yaSeleccionado = input.closest('.combobox').querySelector('.combobox-value')?.value;
+    if (yaSeleccionado) input.select();
+    renderComboboxMenu(input, productosFn(), yaSeleccionado ? '' : undefined);
+  });
+  contenedor.addEventListener('input', e => {
+    const input = e.target.closest('.combobox-input');
+    if (!input) return;
+    input.closest('.combobox').querySelector('.combobox-value').value = '';
+    renderComboboxMenu(input, productosFn());
+  });
+  contenedor.addEventListener('keydown', e => {
+    const input = e.target.closest('.combobox-input');
+    if (!input) return;
+    navegarCombobox(e, input);
+  });
+  contenedor.addEventListener('click', e => {
+    const opt = e.target.closest('.combobox-option');
+    if (!opt) return;
+    seleccionarCombobox(opt.closest('.combobox').querySelector('.combobox-input'), opt.dataset.id, opt.dataset.label);
+  });
+}
+
+/* Cerrar cualquier menú abierto al hacer clic fuera */
+document.addEventListener('click', e => {
+  const dentro = e.target.closest('.combobox');
+  $$('.combobox-menu:not([hidden])').forEach(m => {
+    if (dentro && m === dentro.querySelector('.combobox-menu')) return;
+    m.hidden = true;
+    m.closest('.combobox')?.querySelector('.combobox-input')?.setAttribute('aria-expanded', 'false');
+  });
+});
+
+bindComboboxContenedor($('#listaProductosRegistro'), () => state.productos.filter(p => p.activo));
+bindComboboxContenedor($('#audProductosLista'), () => state.audProductos);
+bindCombobox($('#comboboxEditProducto'), () => state.productos.filter(p => p.activo));
+bindCombobox($('#comboboxEditAudProducto'), () => state.audProductos);
 
 function filaProductoRegistroHTML(prodId = null, cantidad = 1) {
   return `<div class="prod-row">
-    <select class="form-select prod-row-select" aria-label="Producto">${opcionesProductoRegistro(prodId)}</select>
+    ${comboboxProductoHTML({ productos: state.productos.filter(p => p.activo), valueId: prodId, placeholder: 'Busca un producto…' })}
     <input type="number" class="form-control prod-row-cant" min="1" max="1000000" step="1" value="${cantidad}"
       inputmode="numeric" aria-label="Cantidad">
     <button type="button" class="btn-action danger prod-row-remove" title="Quitar producto"><i class="bi bi-x-lg"></i></button>
@@ -1134,11 +1270,12 @@ $('#formRegistro').addEventListener('submit', async e => {
   filas.forEach(fila => {
     const sel = fila.querySelector('.prod-row-select');
     const cant = fila.querySelector('.prod-row-cant');
+    const caja = sel.closest('.combobox');
     const productoId = parseInt(sel.value, 10);
     const cantidad = parseInt(cant.value, 10);
-    sel.classList.remove('is-invalid');
+    caja.classList.remove('is-invalid');
     cant.classList.remove('is-invalid');
-    if (!productoId) { sel.classList.add('is-invalid'); ok = false; return; }
+    if (!productoId) { caja.classList.add('is-invalid'); ok = false; return; }
     if (!(cantidad >= 1)) { cant.classList.add('is-invalid'); ok = false; return; }
     productos.push({ productoId, cantidad, nombre: state.productos.find(p => p.id === productoId)?.nombre || '' });
   });
@@ -1204,12 +1341,15 @@ function abrirModalRegistro(r) {
   state.registroEdit = r;
   $('#editCodigoChip').textContent = `Código ${r.codigo} · ${fmtFecha(r.fecha_hora)}`;
   $('#editTipo').value = r.tipo;
-  $('#editSelProducto').value = r.producto_id;
+  setComboboxProducto($('#editSelProducto'), r.producto_id, state.productos.filter(p => p.activo));
   $('#editCantidad').value = r.cantidad;
   $('#editPlaca').value = r.placa;
   $('#editGuia').value = r.numero_guia || '';
   $('#editProveedor').value = r.proveedor || '';
-  ['#editSelProducto', '#editCantidad', '#editPlaca', '#editGuia', '#editProveedor'].forEach(s => $(s).classList.remove('is-invalid'));
+  ['#editSelProducto', '#editCantidad', '#editPlaca', '#editGuia', '#editProveedor'].forEach(s => {
+    const el = $(s);
+    (el.closest?.('.combobox') || el).classList.remove('is-invalid');
+  });
   bootstrap.Modal.getOrCreateInstance($('#modalRegistroEdit')).show();
 }
 
@@ -1222,8 +1362,11 @@ $('#btnGuardarRegistroEdit').addEventListener('click', async () => {
   const placa = $('#editPlaca').value.trim().toUpperCase();
 
   let ok = true;
-  ['#editSelProducto', '#editCantidad', '#editPlaca', '#editGuia', '#editProveedor'].forEach(s => $(s).classList.remove('is-invalid'));
-  if (!productoId) { $('#editSelProducto').classList.add('is-invalid'); ok = false; }
+  ['#editSelProducto', '#editCantidad', '#editPlaca', '#editGuia', '#editProveedor'].forEach(s => {
+    const el = $(s);
+    (el.closest?.('.combobox') || el).classList.remove('is-invalid');
+  });
+  if (!productoId) { $('#editSelProducto').closest('.combobox').classList.add('is-invalid'); ok = false; }
   if (!(cantidad >= 1)) { $('#editCantidad').classList.add('is-invalid'); ok = false; }
   if (!validarPlaca(placa)) { $('#editPlaca').classList.add('is-invalid'); ok = false; }
 
@@ -1548,7 +1691,6 @@ async function cargarAudRegistros() {
 
 function poblarAudSelects() {
   const areas = state.audAreas;
-  const prods = state.audProductos;
   const opcAreas = areas.map(a => `<option value="${a.id}">${esc(a.nombre)}</option>`).join('');
 
   const baseArea = `<option value="" selected disabled>${areas.length ? 'Selecciona un área…' : 'No hay áreas disponibles'}</option>`;
@@ -1556,10 +1698,7 @@ function poblarAudSelects() {
   $('#editSelAudArea').innerHTML = baseArea + opcAreas;
   $('#selAudFiltroArea').innerHTML = '<option value="">Todas las áreas</option>' + opcAreas;
 
-  const baseProd = `<option value="" selected disabled>${prods.length ? 'Selecciona un producto…' : 'No hay productos disponibles'}</option>`;
-  $('#editSelAudProducto').innerHTML = baseProd + prods.map(p =>
-    `<option value="${p.id}">${esc(p.codigo)} · ${esc(audNombreCorto(p.nombre, 28))}</option>`).join('');
-  $('#audWarnSinProductos').classList.toggle('d-none', prods.length > 0);
+  $('#audWarnSinProductos').classList.toggle('d-none', state.audProductos.length > 0);
 }
 
 /* ---------- registros: filtros y tabla ---------- */
@@ -1720,18 +1859,9 @@ $('#selAudArea').addEventListener('change', actualizarAudPreview);
 $('#editSelAudArea').addEventListener('change', actualizarEditAudPreview);
 $('#editSelAudProducto').addEventListener('change', actualizarEditAudPreview);
 
-/* Opciones de producto para una fila (select compacto: CÓDIGO · NOMBRE) */
-function audOpcionesProducto(sel = null) {
-  const base = `<option value="" selected disabled>${state.audProductos.length ? 'Selecciona un producto…' : 'No hay productos disponibles'}</option>`;
-  const opciones = state.audProductos.map(p =>
-    `<option value="${p.id}" ${Number(sel) === Number(p.id) ? 'selected' : ''}>${esc(p.codigo)} · ${esc(audNombreCorto(p.nombre, 24))}</option>`
-  ).join('');
-  return base + opciones;
-}
-
 function audRowProductoHTML(prodId = null, cantidad = 1) {
   return `<div class="aud-prod-row">
-    <select class="form-select aud-prod-select" aria-label="Producto">${audOpcionesProducto(prodId)}</select>
+    ${comboboxProductoHTML({ productos: state.audProductos, valueId: prodId, placeholder: 'Busca un producto…', hiddenClass: 'aud-prod-select' })}
     <input type="number" class="form-control aud-prod-cant" min="1" max="1000000" step="1" value="${cantidad}"
       inputmode="numeric" aria-label="Cantidad">
     <button type="button" class="btn-action danger aud-prod-remove" title="Quitar producto"><i class="bi bi-x-lg"></i></button>
@@ -1787,11 +1917,12 @@ $('#formAudRegistro').addEventListener('submit', async e => {
   filas.forEach(fila => {
     const sel = fila.querySelector('.aud-prod-select');
     const cant = fila.querySelector('.aud-prod-cant');
+    const caja = sel.closest('.combobox');
     const productoId = parseInt(sel.value, 10);
     const cantidad = parseInt(cant.value, 10);
-    sel.classList.remove('is-invalid');
+    caja.classList.remove('is-invalid');
     cant.classList.remove('is-invalid');
-    if (!productoId) { sel.classList.add('is-invalid'); ok = false; return; }
+    if (!productoId) { caja.classList.add('is-invalid'); ok = false; return; }
     if (!(cantidad >= 1)) { cant.classList.add('is-invalid'); ok = false; return; }
     productos.push({ producto_id: productoId, cantidad });
   });
@@ -1845,10 +1976,13 @@ function abrirAudModalRegistroEdit(r) {
   state.audRegistroEdit = r;
   $('#audEditCodigoChip').textContent = `Código ${r.codigo} · Registrado ${fmtFecha(r.fecha)}`;
   $('#editSelAudArea').value = r.area_id;
-  $('#editSelAudProducto').value = r.producto_id;
+  setComboboxProducto($('#editSelAudProducto'), r.producto_id, state.audProductos);
   $('#editAudCantidad').value = r.cantidad;
   actualizarEditAudPreview();
-  ['#editSelAudArea', '#editSelAudProducto', '#editAudCantidad'].forEach(s => $(s).classList.remove('is-invalid'));
+  ['#editSelAudArea', '#editSelAudProducto', '#editAudCantidad'].forEach(s => {
+    const el = $(s);
+    (el.closest?.('.combobox') || el).classList.remove('is-invalid');
+  });
   bootstrap.Modal.getOrCreateInstance($('#modalAudRegistroEdit')).show();
 }
 
@@ -1861,9 +1995,12 @@ $('#btnGuardarAudRegistroEdit').addEventListener('click', async () => {
   const cantidad = parseInt($('#editAudCantidad').value, 10);
 
   let ok = true;
-  ['#editSelAudArea', '#editSelAudProducto', '#editAudCantidad'].forEach(s => $(s).classList.remove('is-invalid'));
+  ['#editSelAudArea', '#editSelAudProducto', '#editAudCantidad'].forEach(s => {
+    const el = $(s);
+    (el.closest?.('.combobox') || el).classList.remove('is-invalid');
+  });
   if (!areaId) { $('#editSelAudArea').classList.add('is-invalid'); ok = false; }
-  if (!productoId) { $('#editSelAudProducto').classList.add('is-invalid'); ok = false; }
+  if (!productoId) { $('#editSelAudProducto').closest('.combobox').classList.add('is-invalid'); ok = false; }
   if (!(cantidad >= 1)) { $('#editAudCantidad').classList.add('is-invalid'); ok = false; }
   if (!ok) { toast('Revisa los campos marcados en rojo', 'warning'); return; }
 
